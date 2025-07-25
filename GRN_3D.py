@@ -1,37 +1,112 @@
-import math
 import numpy as np
 import random
-from VoxcraftVXA import VXA
-from VoxcraftVXD import VXD
 
-# TODO: save seeds later
-def GRN_random():
+# TODO: move params to cofig
+
+
+# initialization
+def GRN_random(rng):
     genome_size = 150+1
-    genotype = [round(random.uniform(0, 1), 2) for _ in range(genome_size)]
+    genotype = [round(rng.uniform(0, 1), 2) for _ in range(genome_size)]
     return genotype
 
 
+# unequal crossover
+def unequal_crossover(
+    parent1,
+    parent2,
+    rng,
+) :
+
+    # TODO: this threshold and types  should match with the develop method automatically
+    promoter_threshold = 0.8
+    types_nucleotides = 6
+
+    # the first nucleotide is the concentration
+    new_genotype = [(parent1.genome[0]+parent2.genome[0])/2]
+    p1 = parent1.genome[1:]
+    p2 = parent2.genome[1:]
+
+    for parent in [p1, p2]:
+        nucleotide_idx = 0
+        promotor_sites = []
+        while nucleotide_idx < len(parent):
+            if parent[nucleotide_idx] < promoter_threshold:
+                # if there are nucleotides enough to compose a gene
+                if (len(parent)-1-nucleotide_idx) >= types_nucleotides:
+                    promotor_sites.append(nucleotide_idx)
+                    nucleotide_idx += types_nucleotides
+            nucleotide_idx += 1
+
+        # TODO: allow uniform random choice of keeping material after cut point instead of up to it
+        cutpoint = rng.sample(promotor_sites, 1)[0]
+        subset = parent[0:cutpoint+types_nucleotides+1]
+        new_genotype += subset
+
+    max_geno_size = 1000
+    if len(new_genotype) > max_geno_size:
+        new_genotype = new_genotype[0:max_geno_size]
+
+    return new_genotype
+
+
+# mutation for unequal crossover
+def mutation_type1(
+        genome,
+        rng,
+):
+
+    position = rng.sample(range(0, len(genome)), 1)[0]
+    type = rng.sample(['perturbation', 'deletion', 'addition', 'swap'], 1)[0]
+
+    if type == 'perturbation':
+        newv = round(genome[position]+rng.normalvariate(0, 0.1), 2)
+        if newv > 1:
+            genome[position] = 1
+        elif newv < 0:
+            genome[position] = 0
+        else:
+            genome[position] = newv
+
+    if type == 'deletion':
+        genome.pop(position)
+
+    if type == 'addition':
+        genome.insert(position, round(rng.uniform(0, 1), 2))
+
+    if type == 'swap':
+        position2 = rng.sample(range(0, len(genome)), 1)[0]
+        while position == position2:
+            position2 = rng.sample(range(0, len(genome)), 1)[0]
+
+        position_v = genome[position]
+        position2_v = genome[position2]
+        genome[position] = position2_v
+        genome[position2] = position_v
+
+    return genome
+
+
 class DS:
-    UP = 1
-    DOWN = 2
-    LEFT = 3
-    RIGHT = 4
-    FRONT = 5
-    BACK = 6
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+    FRONT = 4
+    BACK = 5
 
 
 class GRN:
 
     # develops a Gene Regulatory network
-    def __init__(self, max_voxels, tfs, genotype, querying_seed, env_condition, n_env_conditions, plastic_body):
+    def __init__(self, max_voxels, cube_face_size, tfs, genotype, rng, env_condition, n_env_conditions, plastic_body):
 
         self.max_voxels = max_voxels
         self.genotype = genotype
-        self.querying_seed = querying_seed
+        self.random = rng
         self.env_condition = env_condition
         self.n_env_conditions = n_env_conditions
         self.plastic_body = plastic_body
-        self.random = None
         self.cells = []
         self.phenotype = None
         self.genes = []
@@ -48,21 +123,22 @@ class GRN:
 
         self.promoter_threshold = 0.8
         self.concentration_decay = 0.005
-        self.structural_tfs = None
+        self.cube_face_size = cube_face_size
+        self.structural_products = None
 
-        three_voxels = {'bone': 1, 'fat': 2, 'muscle': 3}
+        self.type_voxels = {'bone': 1, 'fat': 2, 'muscle': 3}
 
         # if u increase number of reg tfs without increasing voxels tf or geno size,
         # too many only-head robots are sampled
         if tfs == 'reg2m3':  # balanced, number of regulatory tfs similar to number of voxels tfs
-            self.regulatory_tfs = 2
-            self.structural_tfs = three_voxels
+            self.regulatory_products = 2
+            self.structural_products = self.type_voxels
         elif tfs == '':  # more regulatory, number of regulatory tfs greater than the number of voxels tfs
             pass
 
         # structural_tfs use initial indexes and regulatory tfs uses final indexes
         self.product_tfs = []
-        for tf in range(1, len(self.structural_tfs)+1):
+        for tf in range(1, len(self.structural_products)+1):
             self.product_tfs.append(f'TF{tf}')
 
         self.increase_scaling = 100
@@ -74,11 +150,8 @@ class GRN:
         # TODO: evolve all params in the future?
 
     def develop(self):
-
-        self.random = random.Random()#self.querying_seed)
         self.quantity_nodes = 0
         self.develop_body()
-        self.phenotype.finalize()
 
         return self.phenotype
 
@@ -87,8 +160,6 @@ class GRN:
         self.regulate()
 
     def develop_knockout(self, knockouts):
-
-        self.random = random.Random(self.querying_seed)
         self.quantity_nodes = 0
         self.gene_parser()
 
@@ -96,7 +167,6 @@ class GRN:
             self.genes = self.genes[np.logical_not(np.isin(np.arange(self.genes.shape[0]), knockouts))]
 
         self.regulate()
-        self.phenotype.finalize()
 
         return self.phenotype, self.genes
 
@@ -116,7 +186,7 @@ class GRN:
                     diffusion_site = self.genotype[nucleotide_idx+self.diffusion_site_idx+1]
 
                     # begin: converts tfs values into labels #
-                    total = len(self.structural_tfs) + self.regulatory_tfs
+                    total = len(self.structural_products) + self.regulatory_products
                     range_size = 1 / total
                     limits = np.linspace(0, 1 - range_size, total)
                     limits = [round(limit, 2) for limit in limits]
@@ -135,13 +205,8 @@ class GRN:
                     # ends: converts tfs values into labels #
 
                     # begin: converts diffusion sites values into labels #
-                    range_size = 1 / self.diffusion_sites_qt
-                    limits = [round(limit / 100, 2) for limit in range(0, 1 * 100, int(range_size * 100))]
-                    for idx in range(0, len(limits) - 1):
-                        if limits[idx+1] > diffusion_site >= limits[idx]:
-                            diffusion_site_label = idx
-                        elif diffusion_site >= limits[idx+1]:
-                            diffusion_site_label = len(limits)-1
+                    range_size = 1.0 / self.diffusion_sites_qt
+                    diffusion_site_label = min(int(diffusion_site / range_size), self.diffusion_sites_qt - 1)
                     # ends: converts diffusion sites values into labels #
 
                     gene = [regulatory_transcription_factor_label, regulatory_v1, regulatory_v2,
@@ -169,9 +234,9 @@ class GRN:
         return connections, numbers_regulators
 
     def regulate(self):
-        #TODO: provide param for voxel dimensions and voxel types
         # 0 means no voxel
-        self.phenotype = np.random.randint(0, 2, size=(3, 3, 3)) # x, y, z
+        self.phenotype = np.zeros((self.cube_face_size, self.cube_face_size, self.cube_face_size),
+                                  dtype=object)  # x, y, z
         self.maternal_injection()
         self.growth()
 
@@ -302,29 +367,24 @@ class GRN:
                 max(0, cell.transcription_factors[tf][ds] - self.concentration_decay)
 
     def place_voxel(self, parent_cell):
-
         product_concentrations = []
-        for idm in range(0, len(self.structural_tfs)-1):
+
+        for idm in range(0, len(self.structural_products)):
             # sum concentration of all diffusion sites
+            # (structural_products come first in product_tfs)
             concentration = sum(parent_cell.transcription_factors[self.product_tfs[idm]]) \
                 if parent_cell.transcription_factors.get(self.product_tfs[idm]) else 0
             product_concentrations.append(concentration)
 
-        # chooses tf with the highest concentration
+        # chooses structural tf with the highest concentration
         idx_max = product_concentrations.index(max(product_concentrations))
-
-        # rotation is at the end of the list
-        # concentration_rotation = sum(cell.transcription_factors[self.product_tfs[-1]]) \
-        #     if cell.transcription_factors.get(self.product_tfs[-1]) else 0
 
         # if tf concentration above a threshold
         if product_concentrations[idx_max] > self.concentration_threshold:
 
             # grows in the free diffusion site with the highest concentration
             freeslots = np.array([c is None for c in parent_cell.children])
-
             if any(freeslots):
-
                 true_indices = np.where(freeslots)[0]
                 values_at_true_indices = np.array(parent_cell.transcription_factors[self.product_tfs[idx_max]])[true_indices]
                 max_value_index = np.argmax(values_at_true_indices)
@@ -332,18 +392,18 @@ class GRN:
                 slot = position_of_max_value
 
                 potential_child_coord, child_slot = self.find_child_slot(parent_cell.xyz_coordinates, slot)
-                if self.phenotype[potential_child_coord] == 0:
-                    voxel_type = self.structural_tfs[idx_max]
 
-                    self.quantity_voxels += 1
-                    self.new_cell(voxel_type, parent_cell, slot, child_slot, potential_child_coord)
+                # if coordinates within cube bounderies and if position not occupied
+                if all(i < self.cube_face_size for i in potential_child_coord):
+                    if self.phenotype[tuple(potential_child_coord)] == 0:
+                        key, voxel_type = list(self.structural_products.items())[idx_max]
+                        self.quantity_voxels += 1
+                        self.new_cell(voxel_type, parent_cell, slot, child_slot, potential_child_coord)
 
     def new_cell(self, voxel_type, parent_cell, parent_slot, child_slot, xyz_coordinates):
 
-        new_cell = Cell()
-        new_cell.voxel_type = voxel_type
-        new_cell.parent_cell = parent_cell
-        new_cell.xyz_coordinates = xyz_coordinates
+        new_cell = Cell(voxel_type=voxel_type, parent_cell=parent_cell, xyz_coordinates=xyz_coordinates)
+        self.phenotype[tuple(xyz_coordinates)] = new_cell
 
         # share concentrations in diffusion site of parent with child
         for tf in parent_cell.transcription_factors:
@@ -351,7 +411,7 @@ class GRN:
             if parent_cell.transcription_factors[tf][parent_slot] > 0:
                 half_concentration = parent_cell.transcription_factors[tf][parent_slot] / 2
                 parent_cell.transcription_factors[tf][parent_slot] = half_concentration
-                new_cell.transcription_factors[tf] = [0, 0, 0, 0]
+                new_cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
                 new_cell.transcription_factors[tf][child_slot] = half_concentration
 
         self.express_genes(new_cell)
@@ -408,17 +468,17 @@ class GRN:
         mother_tf_label = self.genes[first_gene_idx][tf_label_idx]
         mother_tf_injection = float(self.genes[first_gene_idx][min_value_idx])
 
-        first_cell = Cell()
+        middle_pos = [s // 2 for s in self.phenotype.shape]
+        # TODO: define type of first voxel based on expression?
+        first_cell = Cell(voxel_type=self.type_voxels['muscle'], parent_cell=None, xyz_coordinates=middle_pos)
+        first_cell.xyz_coordinates = middle_pos
         # distributes injection among diffusion sites
         first_cell.transcription_factors[mother_tf_label] = \
             [mother_tf_injection/self.diffusion_sites_qt] * self.diffusion_sites_qt
 
         self.express_genes(first_cell)
         self.cells.append(first_cell)
-        middle_pos = [s // 2 for s in self.phenotype.shape]
-        first_cell.xyz_coordinates = middle_pos
-        #TODO: define type of first voxel based on expression
-        self.phenotype[middle_pos] = self.structural_tfs['muscle']
+        self.phenotype[tuple(middle_pos)] = first_cell
 
     def express_genes(self, new_cell):
 
@@ -439,6 +499,7 @@ class GRN:
                         new_cell.transcription_factors[gene[self.transcription_factor_idx]] \
                             [int(gene[self.diffusion_site_idx])] += float(gene[self.transcription_factor_amount_idx])
                     else:
+
                         new_cell.transcription_factors[gene[self.transcription_factor_idx]] = [0] * self.diffusion_sites_qt
                         new_cell.transcription_factors[gene[self.transcription_factor_idx]] \
                         [int(gene[self.diffusion_site_idx])] = float(gene[self.transcription_factor_amount_idx])
@@ -448,40 +509,23 @@ class GRN:
 
 class Cell:
 
-    def __init__(self, voxel_type, parent_cell, xyz_coordinates):# -> None:
+    def __init__(self, voxel_type, parent_cell, xyz_coordinates):
         self.voxel_type = voxel_type
         self.transcription_factors = {}
         self.original_genes = []
         self.xyz_coordinates = xyz_coordinates
         self.parent_cell = parent_cell
-        self.children = []
+        diffusion_sites_qt = 6
+        self.children = [None] * diffusion_sites_qt
 
 
-genotype = GRN_random()
 
-body = GRN(max_voxels=8, tfs='reg2m2', genotype=genotype, querying_seed=666,
-                              env_condition="", n_env_conditions=1, plastic_body=0).develop()
 
-vxa = VXA(EnableExpansion=1, SimTime=1) # pass vxa tags in here
 
-# Create two materials with different properties
-mat1 = vxa.add_material(RGBA=(0,140,0), E=1e8, RHO=1e4) # returns the material ID
-mat2 = vxa.add_material(RGBA=(55,120,0), E=1e8, RHO=1e4)
-print(mat1, mat2)
-# Write out the vxa to data/ directory
-vxa.write("base.vxa")
 
-# Create random body array between 0 and maximum material ID
-body = np.random.randint(0,2,size=(3,3,3))
-middle_pos = tuple(s // 2 for s in body.shape)
-print(body)
-print(middle_pos)
-body[middle_pos] = 666
-print(body)
 
-# Generate a VXD file
-vxd = VXD()
-vxd.set_tags(RecordVoxel=1) # pass vxd tags in here to overwite vxa tags
-vxd.set_data(body)
-# Write out the vxd to data/
-vxd.write("robot1.vxd")
+
+
+
+
+
