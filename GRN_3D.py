@@ -1,112 +1,18 @@
 import numpy as np
-import random
-
-# TODO: move params to cofig
 
 
-# initialization
-def GRN_random(rng):
-    genome_size = 150+1
-    genotype = [round(rng.uniform(0, 1), 2) for _ in range(genome_size)]
-    return genotype
-
-
-# unequal crossover
-def unequal_crossover(
-    parent1,
-    parent2,
-    rng,
-) :
-
-    # TODO: this threshold and types  should match with the develop method automatically
-    promoter_threshold = 0.8
-    types_nucleotides = 6
-
-    # the first nucleotide is the concentration
-    new_genotype = [(parent1.genome[0]+parent2.genome[0])/2]
-    p1 = parent1.genome[1:]
-    p2 = parent2.genome[1:]
-
-    for parent in [p1, p2]:
-        nucleotide_idx = 0
-        promotor_sites = []
-        while nucleotide_idx < len(parent):
-            if parent[nucleotide_idx] < promoter_threshold:
-                # if there are nucleotides enough to compose a gene
-                if (len(parent)-1-nucleotide_idx) >= types_nucleotides:
-                    promotor_sites.append(nucleotide_idx)
-                    nucleotide_idx += types_nucleotides
-            nucleotide_idx += 1
-
-        # TODO: allow uniform random choice of keeping material after cut point instead of up to it
-        cutpoint = rng.sample(promotor_sites, 1)[0]
-        subset = parent[0:cutpoint+types_nucleotides+1]
-        new_genotype += subset
-
-    max_geno_size = 1000
-    if len(new_genotype) > max_geno_size:
-        new_genotype = new_genotype[0:max_geno_size]
-
-    return new_genotype
-
-
-# mutation for unequal crossover
-def mutation_type1(
-        genome,
-        rng,
-):
-
-    position = rng.sample(range(0, len(genome)), 1)[0]
-    type = rng.sample(['perturbation', 'deletion', 'addition', 'swap'], 1)[0]
-
-    if type == 'perturbation':
-        newv = round(genome[position]+rng.normalvariate(0, 0.1), 2)
-        if newv > 1:
-            genome[position] = 1
-        elif newv < 0:
-            genome[position] = 0
-        else:
-            genome[position] = newv
-
-    if type == 'deletion':
-        genome.pop(position)
-
-    if type == 'addition':
-        genome.insert(position, round(rng.uniform(0, 1), 2))
-
-    if type == 'swap':
-        position2 = rng.sample(range(0, len(genome)), 1)[0]
-        while position == position2:
-            position2 = rng.sample(range(0, len(genome)), 1)[0]
-
-        position_v = genome[position]
-        position2_v = genome[position2]
-        genome[position] = position2_v
-        genome[position2] = position_v
-
-    return genome
-
-
-class DS:
-    UP = 0
-    DOWN = 1
-    LEFT = 2
-    RIGHT = 3
-    FRONT = 4
-    BACK = 5
-
-
+# a Gene Regulatory Network
 class GRN:
+    # cube
+    diffusion_sites_qt = 6
 
-    # develops a Gene Regulatory network
-    def __init__(self, max_voxels, cube_face_size, tfs, genotype, rng, env_condition, n_env_conditions, plastic_body):
+    def __init__(self, promoter_threshold, types_nucleotides, max_voxels, cube_face_size,
+                 tfs, genotype, env_conditions, plastic):
 
         self.max_voxels = max_voxels
         self.genotype = genotype
-        self.random = rng
-        self.env_condition = env_condition
-        self.n_env_conditions = n_env_conditions
-        self.plastic_body = plastic_body
+        self.env_conditions = env_conditions
+        self.plastic = plastic
         self.cells = []
         self.phenotype = None
         self.genes = []
@@ -118,10 +24,9 @@ class GRN:
         self.transcription_factor_idx = 3
         self.transcription_factor_amount_idx = 4
         self.diffusion_site_idx = 5
-        self.types_nucleotides = 6
-        self.diffusion_sites_qt = 6
+        self.types_nucleotides = types_nucleotides
 
-        self.promoter_threshold = 0.8
+        self.promoter_threshold = promoter_threshold
         self.concentration_decay = 0.005
         self.cube_face_size = cube_face_size
         self.structural_products = None
@@ -129,7 +34,7 @@ class GRN:
         self.type_voxels = {'bone': 1, 'fat': 2, 'muscle': 3}
 
         # if u increase number of reg tfs without increasing voxels tf or geno size,
-        # too many only-head robots are sampled
+        # too many single-=cell robots are sampled
         if tfs == 'reg2m3':  # balanced, number of regulatory tfs similar to number of voxels tfs
             self.regulatory_products = 2
             self.structural_products = self.type_voxels
@@ -150,9 +55,7 @@ class GRN:
         # TODO: evolve all params in the future?
 
     def develop(self):
-        self.quantity_nodes = 0
         self.develop_body()
-
         return self.phenotype
 
     def develop_body(self):
@@ -160,7 +63,6 @@ class GRN:
         self.regulate()
 
     def develop_knockout(self, knockouts):
-        self.quantity_nodes = 0
         self.gene_parser()
 
         if knockouts is not None:
@@ -205,8 +107,8 @@ class GRN:
                     # ends: converts tfs values into labels #
 
                     # begin: converts diffusion sites values into labels #
-                    range_size = 1.0 / self.diffusion_sites_qt
-                    diffusion_site_label = min(int(diffusion_site / range_size), self.diffusion_sites_qt - 1)
+                    range_size = 1.0 / GRN.diffusion_sites_qt
+                    diffusion_site_label = min(int(diffusion_site / range_size), GRN.diffusion_sites_qt - 1)
                     # ends: converts diffusion sites values into labels #
 
                     gene = [regulatory_transcription_factor_label, regulatory_v1, regulatory_v2,
@@ -275,7 +177,8 @@ class GRN:
     # increase of originally expressed genes (meaning that gene products resulting from diffusion/split do not increase)
     def increase(self, cell):
 
-        # for all genes in the dna #TODO: easier to loop original_genes instead
+        # for all genes in the dna
+        # TODO: easier to loop original_genes instead
         for idg, gene in enumerate(self.genes):
 
             # if that gene was originally expressed (during dna parse at cell split)
@@ -296,73 +199,73 @@ class GRN:
                             float(gene[self.transcription_factor_amount_idx]) \
                             / float(self.increase_scaling)
 
-    def inter_diffusion(self, tf, cell):
+    # def inter_diffusion(self, tf, cell):
+    #
+    #     for ds in range(0, self.diffusion_sites_qt):
+    #
+    #         # back slot of all voxels but core share with parent
+    #         if ds == Core.BACK and \
+    #                 (type(cell.developed_voxel) == ActiveHinge or type(cell.developed_voxel) == Brick):
+    #             if cell.transcription_factors[tf][Core.BACK] >= self.inter_diffusion_rate:
+    #
+    #                 cell.transcription_factors[tf][Core.BACK] -= self.inter_diffusion_rate
+    #
+    #                 # updates or includes
+    #                 if cell.developed_voxel._parent.cell.transcription_factors.get(tf):
+    #                     cell.developed_voxel._parent.cell.transcription_factors[tf][cell.developed_voxel.direction_from_parent] += self.inter_diffusion_rate
+    #                 else:
+    #                     cell.developed_voxel._parent.cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
+    #                     cell.developed_voxel._parent.cell.transcription_factors[tf][cell.developed_voxel.direction_from_parent] += self.inter_diffusion_rate
+    #
+    #         # concentrations of sites without slot are also shared with single child in the case of joint
+    #         elif ds in [Core.LEFT, Core.FRONT, Core.RIGHT] and type(cell.developed_voxel) == ActiveHinge:
+    #
+    #             if cell.developed_voxel.children[Core.FRONT] is not None \
+    #                     and cell.transcription_factors[tf][ds] >= self.inter_diffusion_rate:
+    #                 cell.transcription_factors[tf][ds] -= self.inter_diffusion_rate
+    #
+    #                 # updates or includes
+    #                 if cell.developed_voxel.children[Core.FRONT].cell.transcription_factors.get(tf):
+    #                     cell.developed_voxel.children[Core.FRONT].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
+    #                 else:
+    #                     cell.developed_voxel.children[Core.FRONT].cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
+    #                     cell.developed_voxel.children[Core.FRONT].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
+    #         else:
+    #
+    #             # everyone shares with children
+    #             #TODO: this does not allow for children of active joint to receive diffusion: fix it
+    #             if cell.developed_voxel.children[ds] is not None \
+    #                 and cell.transcription_factors[tf][ds] >= self.inter_diffusion_rate:
+    #                 cell.transcription_factors[tf][ds] -= self.inter_diffusion_rate
+    #
+    #                 # updates or includes
+    #                 if cell.developed_voxel.children[ds].cell.transcription_factors.get(tf):
+    #                     cell.developed_voxel.children[ds].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
+    #                 else:
+    #                     cell.developed_voxel.children[ds].cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
+    #                     cell.developed_voxel.children[ds].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
 
-        for ds in range(0, self.diffusion_sites_qt):
-
-            # back slot of all voxels but core share with parent
-            if ds == Core.BACK and \
-                    (type(cell.developed_voxel) == ActiveHinge or type(cell.developed_voxel) == Brick):
-                if cell.transcription_factors[tf][Core.BACK] >= self.inter_diffusion_rate:
-
-                    cell.transcription_factors[tf][Core.BACK] -= self.inter_diffusion_rate
-
-                    # updates or includes
-                    if cell.developed_voxel._parent.cell.transcription_factors.get(tf):
-                        cell.developed_voxel._parent.cell.transcription_factors[tf][cell.developed_voxel.direction_from_parent] += self.inter_diffusion_rate
-                    else:
-                        cell.developed_voxel._parent.cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
-                        cell.developed_voxel._parent.cell.transcription_factors[tf][cell.developed_voxel.direction_from_parent] += self.inter_diffusion_rate
-
-            # concentrations of sites without slot are also shared with single child in the case of joint
-            elif ds in [Core.LEFT, Core.FRONT, Core.RIGHT] and type(cell.developed_voxel) == ActiveHinge:
-
-                if cell.developed_voxel.children[Core.FRONT] is not None \
-                        and cell.transcription_factors[tf][ds] >= self.inter_diffusion_rate:
-                    cell.transcription_factors[tf][ds] -= self.inter_diffusion_rate
-
-                    # updates or includes
-                    if cell.developed_voxel.children[Core.FRONT].cell.transcription_factors.get(tf):
-                        cell.developed_voxel.children[Core.FRONT].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
-                    else:
-                        cell.developed_voxel.children[Core.FRONT].cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
-                        cell.developed_voxel.children[Core.FRONT].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
-            else:
-
-                # everyone shares with children
-                #TODO: this does not allow for children of active joint to receive diffusion: fix it
-                if cell.developed_voxel.children[ds] is not None \
-                    and cell.transcription_factors[tf][ds] >= self.inter_diffusion_rate:
-                    cell.transcription_factors[tf][ds] -= self.inter_diffusion_rate
-
-                    # updates or includes
-                    if cell.developed_voxel.children[ds].cell.transcription_factors.get(tf):
-                        cell.developed_voxel.children[ds].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
-                    else:
-                        cell.developed_voxel.children[ds].cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
-                        cell.developed_voxel.children[ds].cell.transcription_factors[tf][Core.BACK] += self.inter_diffusion_rate
-
-    def intra_diffusion(self, tf, cell):
-
-        # for each site in original slots order
-        for ds in range(0, self.diffusion_sites_qt):
-
-            # finds sites at right and left (cyclically)
-            ds_left = ds - 1 if ds - 1 >= 0 else self.diffusion_sites_qt - 1
-            ds_right = ds + 1 if ds + 1 <= self.diffusion_sites_qt - 1 else 0
-
-            # first right
-            if cell.transcription_factors[tf][ds] >= self.intra_diffusion_rate:
-                cell.transcription_factors[tf][ds] -= self.intra_diffusion_rate
-                cell.transcription_factors[tf][ds_right] += self.intra_diffusion_rate
-            #  then left
-            if cell.transcription_factors[tf][ds] >= self.intra_diffusion_rate:
-                cell.transcription_factors[tf][ds] -= self.intra_diffusion_rate
-                cell.transcription_factors[tf][ds_left] += self.intra_diffusion_rate
+    # def intra_diffusion(self, tf, cell):
+    #
+    #     # for each site in original slots order
+    #     for ds in range(0, self.diffusion_sites_qt):
+    #
+    #         # finds sites at right and left (cyclically)
+    #         ds_left = ds - 1 if ds - 1 >= 0 else self.diffusion_sites_qt - 1
+    #         ds_right = ds + 1 if ds + 1 <= self.diffusion_sites_qt - 1 else 0
+    #
+    #         # first right
+    #         if cell.transcription_factors[tf][ds] >= self.intra_diffusion_rate:
+    #             cell.transcription_factors[tf][ds] -= self.intra_diffusion_rate
+    #             cell.transcription_factors[tf][ds_right] += self.intra_diffusion_rate
+    #         #  then left
+    #         if cell.transcription_factors[tf][ds] >= self.intra_diffusion_rate:
+    #             cell.transcription_factors[tf][ds] -= self.intra_diffusion_rate
+    #             cell.transcription_factors[tf][ds_left] += self.intra_diffusion_rate
 
     def decay(self, tf, cell):
         # decay in all sites
-        for ds in range(0, self.diffusion_sites_qt):
+        for ds in range(0, GRN.diffusion_sites_qt):
             cell.transcription_factors[tf][ds] = \
                 max(0, cell.transcription_factors[tf][ds] - self.concentration_decay)
 
@@ -394,7 +297,8 @@ class GRN:
                 potential_child_coord, child_slot = self.find_child_slot(parent_cell.xyz_coordinates, slot)
 
                 # if coordinates within cube bounderies and if position not occupied
-                if all(i < self.cube_face_size for i in potential_child_coord):
+                if all(0 <= i < self.cube_face_size for i in potential_child_coord):
+
                     if self.phenotype[tuple(potential_child_coord)] == 0:
                         key, voxel_type = list(self.structural_products.items())[idx_max]
                         self.quantity_voxels += 1
@@ -411,7 +315,7 @@ class GRN:
             if parent_cell.transcription_factors[tf][parent_slot] > 0:
                 half_concentration = parent_cell.transcription_factors[tf][parent_slot] / 2
                 parent_cell.transcription_factors[tf][parent_slot] = half_concentration
-                new_cell.transcription_factors[tf] = [0] * self.diffusion_sites_qt
+                new_cell.transcription_factors[tf] = [0] * GRN.diffusion_sites_qt
                 new_cell.transcription_factors[tf][child_slot] = half_concentration
 
         self.express_genes(new_cell)
@@ -425,37 +329,36 @@ class GRN:
 
         if parent_slot == DS.LEFT:
             child_slot = DS.RIGHT
-            xyz_coordinates_child = xyz_coordinates_parent.copy()
+            xyz_coordinates_child = list(xyz_coordinates_parent)
             xyz_coordinates_child[x] -= 1
 
         if parent_slot == DS.RIGHT:
             child_slot = DS.LEFT
-            xyz_coordinates_child = xyz_coordinates_parent.copy()
+            xyz_coordinates_child = list(xyz_coordinates_parent)
             xyz_coordinates_child[x] += 1
 
         if parent_slot == DS.FRONT:
             child_slot = DS.BACK
-            xyz_coordinates_child = xyz_coordinates_parent.copy()
+            xyz_coordinates_child = list(xyz_coordinates_parent)
             xyz_coordinates_child[y] += 1
 
         if parent_slot == DS.BACK:
             child_slot = DS.FRONT
-            xyz_coordinates_child = xyz_coordinates_parent.copy()
+            xyz_coordinates_child = list(xyz_coordinates_parent)
             xyz_coordinates_child[y] -= 1
 
         if parent_slot == DS.UP:
             child_slot = DS.DOWN
-            xyz_coordinates_child = xyz_coordinates_parent.copy()
+            xyz_coordinates_child = list(xyz_coordinates_parent)
             xyz_coordinates_child[z] += 1
 
         if parent_slot == DS.DOWN:
             child_slot = DS.UP
-            xyz_coordinates_child = xyz_coordinates_parent.copy()
+            xyz_coordinates_child = list(xyz_coordinates_parent)
             xyz_coordinates_child[z] -= 1
 
         return xyz_coordinates_child, child_slot
 
-    # karines original injection
     def maternal_injection(self):
 
         # injects maternal tf into zygot and starts development of the first cell
@@ -474,7 +377,7 @@ class GRN:
         first_cell.xyz_coordinates = middle_pos
         # distributes injection among diffusion sites
         first_cell.transcription_factors[mother_tf_label] = \
-            [mother_tf_injection/self.diffusion_sites_qt] * self.diffusion_sites_qt
+            [mother_tf_injection/GRN.diffusion_sites_qt] * GRN.diffusion_sites_qt
 
         self.express_genes(first_cell)
         self.cells.append(first_cell)
@@ -500,7 +403,7 @@ class GRN:
                             [int(gene[self.diffusion_site_idx])] += float(gene[self.transcription_factor_amount_idx])
                     else:
 
-                        new_cell.transcription_factors[gene[self.transcription_factor_idx]] = [0] * self.diffusion_sites_qt
+                        new_cell.transcription_factors[gene[self.transcription_factor_idx]] = [0] * GRN.diffusion_sites_qt
                         new_cell.transcription_factors[gene[self.transcription_factor_idx]] \
                         [int(gene[self.diffusion_site_idx])] = float(gene[self.transcription_factor_amount_idx])
 
@@ -515,11 +418,105 @@ class Cell:
         self.original_genes = []
         self.xyz_coordinates = xyz_coordinates
         self.parent_cell = parent_cell
-        diffusion_sites_qt = 6
-        self.children = [None] * diffusion_sites_qt
+        self.children = [None] * GRN.diffusion_sites_qt
 
 
+class DS:
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+    FRONT = 4
+    BACK = 5
 
+# voxels  perspective
+# Np = [x,y,z]
+#
+# X: 4,1,1: left/right
+# Y: 1,4,1: back/front
+# Z: 1,1,4: up/down
+
+
+###### operators ######
+
+# init
+def initialization(rng, ini_genome_size):
+
+    genome_ini_size = ini_genome_size
+    genome_size = genome_ini_size + 1
+    genotype = [round(rng.uniform(0, 1), 2) for _ in range(genome_size)]
+    return genotype
+
+
+# unequal crossover
+def unequal_crossover(
+        rng,
+        promoter_threshold,
+        types_nucleotides,
+        max_geno_size,
+        parent1,
+        parent2,
+):
+
+    # the first nucleotide is the concentration
+    new_genotype = [(parent1[0] + parent2[0]) / 2]
+    p1 = parent1[1:]
+    p2 = parent2[1:]
+
+    for parent in [p1, p2]:
+        nucleotide_idx = 0
+        promotor_sites = []
+        while nucleotide_idx < len(parent):
+            if parent[nucleotide_idx] < promoter_threshold:
+                # if there are nucleotides enough to compose a gene
+                if (len(parent) - 1 - nucleotide_idx) >= types_nucleotides:
+                    promotor_sites.append(nucleotide_idx)
+                    nucleotide_idx += types_nucleotides
+            nucleotide_idx += 1
+
+        # TODO: allow uniform random choice of keeping material after cut point instead of up to it
+        cutpoint = rng.sample(promotor_sites, 1)[0]
+        subset = parent[0:cutpoint + types_nucleotides + 1]
+        new_genotype += subset
+
+    if len(new_genotype) > max_geno_size:
+        new_genotype = new_genotype[0:max_geno_size]
+
+    return new_genotype
+
+
+# mutation for unequal crossover
+def mutation_type1(rng, genome):
+
+    position = rng.sample(range(0, len(genome)), 1)[0]
+    type = rng.sample(['perturbation', 'deletion', 'addition', 'swap'], 1)[0]
+
+    if type == 'perturbation':
+        newv = round(genome[position] + rng.normalvariate(0, 0.1), 2)
+        if newv > 1:
+            genome[position] = 1
+        elif newv < 0:
+            genome[position] = 0
+        else:
+            genome[position] = newv
+
+    if type == 'deletion':
+        genome.pop(position)
+
+    if type == 'addition':
+        genome.insert(position, round(rng.uniform(0, 1), 2))
+
+    if type == 'swap':
+        position2 = rng.sample(range(0, len(genome)), 1)[0]
+        while position == position2:
+            position2 = rng.sample(range(0, len(genome)), 1)[0]
+
+        position_v = genome[position]
+        position2_v = genome[position2]
+        genome[position] = position2_v
+        genome[position2] = position_v
+
+    return genome
 
 
 
