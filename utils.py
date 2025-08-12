@@ -3,7 +3,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
 
 
-def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE):
+def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, path):
 
     # Define color map for values in body
     color_map = {
@@ -57,8 +57,8 @@ def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE):
     ax.set_xlabel('Y')
     ax.set_ylabel('X')
     ax.set_zlabel('Z')
-    ax.set_title('Voxel Visualization (1x1x1 Cubes, Correct Colors)')
+    #ax.set_title('Voxel Visualization (1x1x1 Cubes, Correct Colors)')
     plt.tight_layout()
 
     # Save the image
-    plt.savefig(f"../working_data/voxcraft-GRN/{id_individual}.png", dpi=300)
+    plt.savefig(f"{path}/{id_individual}.png", dpi=300)

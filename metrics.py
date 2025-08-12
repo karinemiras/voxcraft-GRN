@@ -1,7 +1,8 @@
 import numpy as np
 
+
 def tree_edit_distance(g1, g2):
-    # TODO: increment
+    # TODO: consider voxel types
     g1_flat = np.array(g1).flatten()
     g2_flat = np.array(g2).flatten()
     return np.sum(g1_flat != g2_flat)  # Hamming distance as placeholder

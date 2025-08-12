@@ -9,6 +9,14 @@ class Config():
         # EA params
 
         parser.add_argument(
+            "--algorithm",
+            required=False,
+            default="basic_EA",
+            type=str,
+            help="",
+        )
+
+        parser.add_argument(
             "--population_size",
             required=False,
             default=10,
@@ -25,7 +33,7 @@ class Config():
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=3,
+            default=5,
             type=int,
         )
 
@@ -43,7 +51,6 @@ class Config():
             type=int,
             help="",
         )
-
 
         parser.add_argument(
             "--tfs",
@@ -72,14 +79,14 @@ class Config():
         parser.add_argument(
             "--crossover_prob",
             required=False,
-            default=0,
+            default=1,
             type=float,
         )
 
         parser.add_argument(
             "--mutation_prob",
             required=False,
-            default=1,
+            default=0.9,
             type=float,
         )
 
@@ -126,17 +133,17 @@ class Config():
         parser.add_argument(
             "--out_path",
             required=False,
-            default="/home",
+            default="",
             type=str,
-            help="path results files"
+            help="path for results files"
         )
 
         parser.add_argument(
             "--sim_path",
             required=False,
-            default="/home",
+            default="",
             type=str,
-            help="path voxcraft"
+            help="temporary path for voxcraft files"
         )
 
         parser.add_argument(
