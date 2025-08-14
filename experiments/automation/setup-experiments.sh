@@ -1,22 +1,18 @@
 #!/bin/bash
-# run this script from the root (folder): ./experiments/automation/setup-experiments.sh pathPARAMSFILE/PARAMSFILE.sh
+# run this script from the ROOT: ./experiments/automation/setup-experiments.sh pathPARAMSFILE/PARAMSFILE.sh
 #set -e
 #set -x
 
-
-DIR="$(dirname "${BASH_SOURCE[0]}")"
-PARENT_DIR="$(dirname -- "$DIR")"
-study_path="$(basename $DIR)"
-
 if [ $# -eq 0 ]
   then
-    params_file="$PARENT_DIR/paramsdefault.sh"
+    params_file="experiments/noveltysearch.sh"
   else
     params_file=$1
 fi
 
-source $params_file
+source "$params_file"
 
+# when not needed, just fails
 mkdir ${out_path}/${study}
 mkdir ${out_path}/${study}/analysis
 
@@ -28,6 +24,7 @@ for t in $(seq 1 $((${num_terminals}))); do
     possible_screens+=($t)
 done
 
+# unpack params
 IFS=', ' read -r -a experiments <<< "$experiments"
 IFS=', ' read -r -a tfs <<< "$tfs"
 
@@ -42,9 +39,7 @@ while true
     free_screens=()
     active_experiments=()
 
-
     declare -a arr="$(screen -list)"
-
 
     for obj in ${arr[@]}; do
 
@@ -67,7 +62,6 @@ while true
 
 
     # discover unfinished experiments
-
     to_do=()
     unfinished=()
     for i in $(seq $nruns)
@@ -94,8 +88,8 @@ while true
                 fi
              fi
          else
-             # not started yet
-        #     echo " None";
+               # not started yet
+               # echo " None";
                unfinished+=("${experiment}_${run}")
                # only if not already running
                 if [[ ! " ${active_experiments[@]} " =~ " ${experiment}_${run} " ]]; then
@@ -120,7 +114,7 @@ while true
         idx=$( echo ${experiments[@]/${exp}//} | cut -d/ -f1 | wc -w | tr -d ' ' )
 
         # nice -n19 python3  experiments/${study}/${algorithm}.py
-        screen -d -m -S _${study}_${free_screens[$p]}_${to_d} -L -Logfile ${out_path}/${study}/${exp}_${run}".log" \
+       screen -d -m -S _${study}_${free_screens[$p]}_${to_d} -L -Logfile ${out_path}/${study}/${exp}_${run}".log" \
                python3  algorithms/${algorithm}.py --out_path ${out_path} \
                --experiment_name ${exp} --env_conditions ${env_conditions} --run ${run} --study=${study} \
                --num_generations ${num_generations} --population_size ${population_size} --offspring_size ${offspring_size} \
@@ -140,7 +134,7 @@ while true
    if [ -z "$unfinished" ]; then
 
       printf "\n analysis...\n"
-     # ./experiments/automation/run-analysis.sh $params_file
+      ./experiments/automation/run-analysis.sh $params_file
 
       #./experiments/automation/watch_and_record.sh $params_file
 

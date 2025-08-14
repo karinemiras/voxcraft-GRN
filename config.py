@@ -77,6 +77,14 @@ class Config():
         )
 
         parser.add_argument(
+            "--env_conditions",
+            required=False,
+            default='',
+            type=str,
+            help="params that define environmental conditions and/or task",
+        )
+
+        parser.add_argument(
             "--crossover_prob",
             required=False,
             default=1,
@@ -91,9 +99,9 @@ class Config():
         )
 
         parser.add_argument(
-            "--fitness_measure",
+            "--fitness_metric",
             required=False,
-            default="disp_y",
+            default="uniqueness",
             type=str,
         )
 
@@ -154,14 +162,6 @@ class Config():
             help="If 0, runs optimizer without simulating robots, so behavioral measures are none."
         )
 
-        # provides params that define environmental conditions and/or task
-        parser.add_argument(
-            "--env_conditions",
-            required=False,
-            default='',
-            type=str,
-            help="",
-        )
         args = parser.parse_args()
 
         return args

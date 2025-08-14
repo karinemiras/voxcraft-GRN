@@ -3,8 +3,19 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '')))
 from VoxcraftVXD import VXD
 from VoxcraftVXA import VXA
 
+import numpy as np
+
 
 def simulate(phenotype, sim_path, thread):
+
+    # Remove empty layers (prevents starting with a floating body)
+    trimmed_phenotype_materials = phenotype
+    x_mask = np.any(trimmed_phenotype_materials != 0, axis=(1, 2))
+    trimmed_phenotype_materials = trimmed_phenotype_materials[x_mask]
+    y_mask = np.any(trimmed_phenotype_materials != 0, axis=(0, 2))
+    trimmed_phenotype_materials = trimmed_phenotype_materials[:, y_mask]
+    z_mask = np.any(trimmed_phenotype_materials != 0, axis=(0, 1))
+    trimmed_phenotype_materials = trimmed_phenotype_materials[:, :, z_mask]
 
     # pass vxa tags in here
     vxa = VXA(EnableExpansion=1, SimTime=1)
@@ -23,7 +34,7 @@ def simulate(phenotype, sim_path, thread):
     vxd = VXD()
     # pass vxd tags in here to overwrite vxa tags
     vxd.set_tags(RecordVoxel=1)
-    vxd.set_data(phenotype)
+    vxd.set_data(trimmed_phenotype_materials)
 
     # Write out the vxd to data
     #vxd.write(f"{sim_path}/thread_{thread}/robot.vxd")

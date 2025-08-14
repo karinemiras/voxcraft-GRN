@@ -1,23 +1,27 @@
 #!/bin/bash
 
-# run this script from the root (folder): ./experiments/automation/run-analysis.sh pathPARAMSFILE/PARAMSFILE.sh
+# run this script from the ROOT: ./experiments/automation/run-analysis.sh pathPARAMSFILE/PARAMSFILE.sh
 
-DIR="$(dirname "${BASH_SOURCE[0]}")"
-study_path="$(basename $DIR)"
 
 if [ $# -eq 0 ]
   then
-     params_file=$DIR/paramsdefault.sh
+    params_file="experiments/noveltysearch.sh"
   else
     params_file=$1
 fi
 
-source $params_file
+set -a
+source "$params_file"
+set +a
 
-comparison='basic_plots'
-#python experiments/${study_path}/consolidate.py $study $experiments $runs $final_gen $comparison $outputs_path;
-#python experiments/${study_path}/plot_static.py $study $experiments $runs $generations $comparison $outputs_path;
-#python experiments/${study_path}/snapshots_bests.py $study $experiments $tfs $runs $generations $outputs_path;
-#python experiments/${study_path}/bests_snap_draw.py $study $experiments $runs $generations $outputs_path;
+#python experiments/analysis/consolidate.py $study $experiments $runs $generations $out_path;
+#python experiments/analysis/bests_snap_draw.py $study $experiments $runs $generations $out_path;
 
-
+papermill "experiments/analysis/analysis.ipynb" \
+          "experiments/analysis/analysis-executed.ipynb" \
+          -p study "$study" \
+          -p experiments "$experiments" \
+          -p runs "$runs" \
+          -p generations "$generations" \
+          -p final_gen "$final_gen" \
+          -p out_path "$out_path"

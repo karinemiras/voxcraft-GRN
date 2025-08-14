@@ -1,185 +1,147 @@
 import argparse
-
-import matplotlib.pyplot as plt
-import pandas
-from sqlalchemy.future import select
 import os
-import inspect
-import matplotlib.pyplot as plt
-import seaborn as sb
-from statannot import add_stat_annotation
-from itertools import combinations
-import pprint
 import sys
-import math
+import pandas as pd
+from sqlalchemy import create_engine, select
 
-from revolve2.core.database import open_database_sqlite
-from revolve2.core.database.serializers import DbFloat
-from revolve2.core.optimization.ea.generic_ea._database import (
-    DbEAOptimizerGeneration,
-    DbEAOptimizerIndividual
-)
+# make repo root importable (adjust two dirs up if needed)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from algorithms.EA_classes import Robot, GenerationSurvivor  # your ORM models
 
 
 class Analysis:
-
     def __init__(self, args):
-
-        study = args.study
-        experiments_name = args.experiments.split(',')
-        runs = list(map(int, args.runs.split(',')))
-        mainpath = args.mainpath
-
-        self.study = study
-        self.experiments = experiments_name
-        self.inner_metrics = ['mean', 'max']
-        self.runs = runs
+        self.study = args.study
+        self.experiments = [e.strip() for e in args.experiments.split(",") if e.strip()]
+        self.runs = [int(r) for r in args.runs.split(",") if r.strip()]
         self.final_gen = int(args.final_gen)
-        self.comparison = args.comparison
-        self.path = f'{mainpath}/{study}'
+        self.path = f"{args.mainpath}/{self.study}"
 
-        self.measures = {
-            'pop_diversity': ['Diversity', 0, 1],
-           # 'novelty': ['Novelty', 0, 1],
-            'seasonal_dominated': ['Seasonal Dominated', 0, 1],
-            'age': ['Age', 0, 1],
-            'speed_y': ['Speed (cm/s)', 0, 1],
-            'disp_y': ['Displacement (m/s)', 0, 100],
-            'relative_speed_y': ['Relative speed (cm/s)', 0, 1],
-            'displacement': ['Total displacement (m)', 0, 1],
-            'average_z': ['Z', 0, 1],
-            'head_balance': ['Balance', 0, 1],
-            'modules_count': ['Modules count', 0, 1],
-            'hinge_count': ['Hinge count', 0, 1],
-            'brick_count': ['Brick count', 0, 1],
-            'hinge_prop': ['Hinge prop', 0, 1],
-            'hinge_ratio': ['Hinge ratio', 0, 1],
-            'brick_prop': ['Brick prop', 0, 1],
-            'branching_count': ['Branching count', 0, 1],
-            'branching_prop': ['Branching prop', 0, 1],
-            'extremities': ['Extremities', 0, 1],
-            'extensiveness': ['Extensiveness', 0, 1],
-            'extremities_prop': ['Extremities prop', 0, 1],
-            'extensiveness_prop': ['Extensiveness prop', 0, 1],
-            'width': ['Width', 0, 1],
-            'height': ['Height', 0, 1],
-            'coverage': ['Coverage', 0, 1],
-            'proportion': ['Proportion', 0, 1],
-            'symmetry': ['Symmetry', 0, 1]}
+        # which columns to summarize
+        self.metrics = ["uniqueness",
+                        "fitness",
+                        "num_voxels"]
+
+    def _resolve_db_path(self, base_path: str):
+        """
+        Accept either:
+          - a direct sqlite file (…/run_X/experiment.sqlite3 or custom name), or
+          - a run directory (…/run_X) containing experiment.sqlite3
+        """
+        if os.path.isdir(base_path):
+            candidate = os.path.join(base_path, "experiment.sqlite3")
+            return candidate if os.path.exists(candidate) else None
+        return base_path if os.path.exists(base_path) else None
 
     def consolidate(self):
-        print('consolidating...')
+        print("consolidating...")
 
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
+        os.makedirs(self.path, exist_ok=True)
+        os.makedirs(f"{self.path}/analysis", exist_ok=True)
 
-        if not os.path.exists(f'{self.path}/analysis/{self.comparison}'):
-            os.makedirs(f'{self.path}/analysis/{self.comparison}')
-            
-        all_df = None
+        frames = []
+        robots_frames = []
+
         for experiment in self.experiments:
             for run in self.runs:
-                print(experiment, run)
-                db = open_database_sqlite(f'{self.path}/{experiment}/run_{run}')
+                # user provided a directory path earlier; support both cases
+                db_base = os.path.join(self.path, experiment, f"run_{run}")
+                db_path = self._resolve_db_path(db_base)
+                if db_path is None:
+                    print(f"[warn] DB not found, skipping: {db_base}")
+                    continue
 
-                # read the optimizer data into a pandas dataframe
-                df = pandas.read_sql(
-                    select(
-                        DbEAOptimizerIndividual,
-                        DbEAOptimizerGeneration,
-                        DbFloat
-                    ).filter(
-                        (DbEAOptimizerGeneration.individual_id == DbEAOptimizerIndividual.individual_id)
-                        & (DbEAOptimizerGeneration.env_conditions_id == DbEAOptimizerIndividual.env_conditions_id)
-                        & (DbEAOptimizerGeneration.ea_optimizer_id == DbEAOptimizerIndividual.ea_optimizer_id)
-                        & (DbFloat.id == DbEAOptimizerIndividual.float_id)
-                        & (DbFloat.speed_y is not None and DbFloat.speed_y != -math.inf)
-                    ),
-                    db,
-                )
+                engine = create_engine(f"sqlite:///{db_path}", future=True)
+                with engine.connect() as conn:
+                    # survivors ⨝ robots
+                    stmt = (
+                        select(
+                            GenerationSurvivor.generation,
+                            GenerationSurvivor.robot_id,
+                            GenerationSurvivor.fitness,
+                            GenerationSurvivor.uniqueness,
+                            Robot.born_generation,
+                            Robot.num_voxels,
+                        )
+                        .join(Robot, Robot.robot_id == GenerationSurvivor.robot_id)
+                    )
+                    df = pd.read_sql(stmt, conn)
+
+                    # full robots table
+                    robots_stmt = select(
+                        Robot.robot_id,
+                        Robot.born_generation,
+                        Robot.num_voxels,
+                    )
+                    df_robots = pd.read_sql(robots_stmt, conn)
+
+                # tag with experiment/run
                 df["experiment"] = experiment
                 df["run"] = run
+                frames.append(df)
 
-                if all_df is None:
-                    all_df = df
-                else:
-                    all_df = pandas.concat([all_df, df], axis=0)
+                df_robots["experiment"] = experiment
+                df_robots["run"] = run
+                robots_frames.append(df_robots)
 
-        all_df = all_df[all_df['generation_index'] <= self.final_gen]
+        if not frames:
+            print("[warn] no data found; nothing to consolidate.")
+            return
 
-        keys = ['experiment', 'run', 'generation_index', 'env_conditions_id']
+        # === all_df (filtered) =================================================
+        all_df = pd.concat(frames, ignore_index=True)
+        all_df = all_df[all_df["generation"] <= self.final_gen].reset_index(drop=True)
+        all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
 
-        def renamer(col):
-            if col not in keys:
-                if inspect.ismethod(metric):
-                    sulfix = metric.__name__
-                else:
-                    sulfix = metric
-                return col + '_' + sulfix
-            else:
-                return col
+        # === consolidated robots ==============================================
+        if robots_frames:
+            robots_all = pd.concat(robots_frames, ignore_index=True)
+            robots_all.to_csv(f"{self.path}/analysis/all_robots.csv", index=False)
+        else:
+            print("[warn] no robots rows found.")
 
-        def groupby(data, measures, metric, keys):
-            expr = {x: metric for x in measures}
-            df_inner_group = data.groupby(keys).agg(expr).reset_index()
-            df_inner_group = df_inner_group.rename(mapper=renamer, axis='columns')
-            return df_inner_group
+        # === inner: within runs per generation (mean & max) ====================
+        inner = (
+            all_df.groupby(["experiment", "run", "generation"], as_index=False)
+            .agg(
+                fitness_mean=("fitness", "mean"),
+                fitness_max=("fitness", "max"),
+                uniqueness_mean=("uniqueness", "mean"),
+                num_voxels_mean=("num_voxels", "mean"),
+            )
+        )
+        inner.to_csv(f"{self.path}/analysis/gens_robots_inner.csv", index=False)
 
-        # inner measurements (within runs)
+        # === outer: across runs per generation (median, q25, q75) ==============
+        agg_spec = {}
 
-        df_inner = {}
-        for metric in self.inner_metrics:
-            df_inner[metric] = groupby(all_df, self.measures.keys(), metric, keys)
+        # summarize MEANS for all metrics
+        for m in self.metrics:
+            col = f"{m}_mean"
+            agg_spec[f"{col}_median"] = (col, "median")
+            agg_spec[f"{col}_q25"] = (col, lambda x: x.quantile(0.25))
+            agg_spec[f"{col}_q75"] = (col, lambda x: x.quantile(0.75))
 
-        df_inner = pandas.merge(df_inner[self.inner_metrics[0]], df_inner[self.inner_metrics[1]], on=keys)
+        # and ONLY FITNESS has MAX
+        col = "fitness_max"
+        agg_spec[f"{col}_median"] = (col, "median")
+        agg_spec[f"{col}_q25"] = (col, lambda x: x.quantile(0.25))
+        agg_spec[f"{col}_q75"] = (col, lambda x: x.quantile(0.75))
 
-        # outer measurements (among runs)
+        outer = inner.groupby(["experiment", "generation"], as_index=False).agg(**agg_spec)
+        outer.to_csv(f"{self.path}/analysis/gens_robots_outer.csv", index=False)
 
-        measures_inner = []
-        for measure in self.measures.keys():
-            for metric in self.inner_metrics:
-                measures_inner.append(f'{measure}_{metric}')
-
-        keys = ['experiment', 'generation_index', 'env_conditions_id']
-        metric = 'median'
-        df_outer_median = groupby(df_inner, measures_inner, metric, keys)
-
-        metric = self.q25
-        df_outer_q25 = groupby(df_inner, measures_inner, metric, keys)
-
-        metric = self.q75
-        df_outer_q75 = groupby(df_inner, measures_inner, metric, keys)
-
-        df_outer = pandas.merge(df_outer_median, df_outer_q25, on=keys)
-        df_outer = pandas.merge(df_outer, df_outer_q75, on=keys)
-
-        all_df.to_csv(f'{self.path}/analysis/{self.comparison}/all_df.csv', index=True)
-        df_inner.to_csv(f'{self.path}/analysis/{self.comparison}/df_inner.csv', index=True)
-        df_outer.to_csv(f'{self.path}/analysis/{self.comparison}/df_outer.csv', index=True)
-
-        print('consolidated!')
-
-    def q25(self, x):
-        return x.quantile(0.25)
-
-    def q75(self, x):
-        return x.quantile(0.75)
+        print("consolidated!")
 
 
-#TODO: either separate by run or allow resuming
+# --- CLI ----------------------------------------------------------------------
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Consolidate EA results.")
+    parser.add_argument("study")
+    parser.add_argument("experiments")  # comma-separated
+    parser.add_argument("runs")         # comma-separated
+    parser.add_argument("final_gen")
+    parser.add_argument("mainpath")
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument("study")
-parser.add_argument("experiments")
-parser.add_argument("runs")
-parser.add_argument("final_gen")
-parser.add_argument("comparison")
-parser.add_argument("mainpath")
-args = parser.parse_args()
-
-# TODO: break by environment
-analysis = Analysis(args)
-analysis.consolidate()
-
-
-
+    Analysis(args).consolidate()

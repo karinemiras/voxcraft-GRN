@@ -1,20 +1,19 @@
 #!/bin/bash
-# run this script from the root (folder): ./experiments/automation/run-experiments.sh pathPARAMSFILE/PARAMSFILE.sh
-
-DIR="$(dirname "${BASH_SOURCE[0]}")"
-study="$(basename $DIR)"
+# run this script from the ROOT: ./experiments/automation/run-experiments.sh pathPARAMSFILE/PARAMSFILE.sh
 
 if [ $# -eq 0 ]
   then
-     params_file=$DIR/paramsdefault.sh
+    params_file="experiments/noveltysearch.sh"
   else
     params_file=$1
 fi
 
-source $params_file
+source "$params_file"
 
-mkdir ${outputs_path}/${study};
-screen -d -m -S ${study}_loop -L -Logfile ${outputs_path}/${study}/setuploop.log $DIR/setup-experiments.sh ${params_file};
+# when not needed, just fails
+mkdir ${out_path}/${study};
+
+screen -d -m -S ${study}_loop -L -Logfile ${out_path}/${study}/setuploop.log $DIR/setup-experiments.sh ${params_file};
 
 ### CHEATS: ###
 
