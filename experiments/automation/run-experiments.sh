@@ -11,9 +11,9 @@ fi
 source "$params_file"
 
 # when not needed, just fails
-mkdir ${out_path}/${study};
+mkdir ${out_path}/${study_name};
 
-screen -d -m -S ${study}_loop -L -Logfile ${out_path}/${study}/setuploop.log $DIR/setup-experiments.sh ${params_file};
+screen -d -m -S ${study_name}_loop -L -Logfile ${out_path}/${study_name}/setuploop.log experiments/automation/setup-experiments.sh ${params_file};
 
 ### CHEATS: ###
 

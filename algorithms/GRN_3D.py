@@ -6,8 +6,8 @@ class GRN:
     # cube
     diffusion_sites_qt = 6
 
-    def __init__(self, promoter_threshold, types_nucleotides, max_voxels, cube_face_size,
-                 tfs, genotype, env_conditions, plastic):
+    def __init__(self, promoter_threshold=0.8, max_voxels=10, cube_face_size=3,
+                  genotype=None, tfs='reg2m3', env_conditions=None, plastic=None):
 
         self.max_voxels = max_voxels
         self.genotype = genotype
@@ -24,7 +24,7 @@ class GRN:
         self.transcription_factor_idx = 3
         self.transcription_factor_amount_idx = 4
         self.diffusion_site_idx = 5
-        self.types_nucleotides = types_nucleotides
+        self.types_nucleotides = 6
 
         self.promoter_threshold = promoter_threshold
         self.concentration_decay = 0.005
@@ -69,7 +69,6 @@ class GRN:
             self.genes = self.genes[np.logical_not(np.isin(np.arange(self.genes.shape[0]), knockouts))]
 
         self.regulate()
-
         return self.phenotype, self.genes
 
     # parses genotype to discover promoter sites and compose genes
@@ -451,13 +450,12 @@ def initialization(rng, ini_genome_size):
 # unequal crossover
 def unequal_crossover(
         rng,
-        promoter_threshold,
-        types_nucleotides,
+        promoter_threshold, # make sure it matches th param inside the GRN class
         max_geno_size,
         parent1,
         parent2,
 ):
-
+    types_nucleotides = 6
     # the first nucleotide is the concentration
     new_genotype = [(parent1[0] + parent2[0]) / 2]
     p1 = parent1[1:]

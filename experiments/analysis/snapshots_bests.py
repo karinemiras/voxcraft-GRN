@@ -1,114 +1,119 @@
-from sqlalchemy.ext.asyncio.session import AsyncSession
-from revolve2.core.database import open_async_database_sqlite
-from sqlalchemy.future import select
-from revolve2.core.optimization.ea.generic_ea import DbEAOptimizerGeneration, DbEAOptimizerIndividual, DbEAOptimizer, DbEnvconditions
-from revolve2.core.modular_robot.render.render import Render
-from genotype import GenotypeSerializer, develop
-from revolve2.core.database.serializers import DbFloat
-
-import os
-import sys
+import os, sys
 import argparse
-from ast import literal_eval
 import math
+import importlib
+from pathlib import Path
+from types import SimpleNamespace
+
+from sqlalchemy import create_engine, func
+from sqlalchemy.orm import sessionmaker
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(ROOT))
+from algorithms.EA_classes import Robot, GenerationSurvivor
+from utils.draw import draw_phenotype
+from utils.config import Config
 
 
-async def main(parser) -> None:
+def main():
+    args = Config()._get_params()
 
-    args = parser.parse_args()
+    experiments = args.experiments.split(",")
+    runs = list(map(int, args.runs.split(",")))
+    generations = list(map(int, args.generations.split(",")))
+    tfs = args.tfs.split(",")
 
-    study = args.study
-    experiments_name = args.experiments.split(',')
-    runs = list(map(int, args.runs.split(',')))
-    generations = list(map(int, args.generations.split(',')))
-    tfs = list(args.tfs.split(','))
-    mainpath = args.mainpath
-    numberrobots = 10
+    # instantiates the algorithm class with original params to develop the phenotypes
+    module_name = f"algorithms.{args.algorithm}"
+    class_name = "EA"
+    module = importlib.import_module(module_name)
+    cls = getattr(module, class_name)
+    args = SimpleNamespace(
+        max_voxels=args.max_voxels,
+        plastic=args.plastic,
+        env_conditions=args.env_conditions,
+        cube_face_size=args.cube_face_size,
+        tfs=None,
+        out_path=None,
+        study_name=None,
+        experiment_name=None,
+        run=None,
+        sim_path=None,
+        population_size=None,
+        offspring_size=None,
+        crossover_prob=None,
+        mutation_prob=None,
+        tournament_k=None,
+        num_generations=None,
+        fitness_metric=None
+    )
+    EA = cls(args)
 
-    for idsy, experiment_name in enumerate(experiments_name):
+    numberrobots = 10  # top-N per generation
+
+    for exp_idx, experiment_name in enumerate(experiments):
         print(experiment_name)
+
+        tf_for_exp = tfs[exp_idx]
+
         for run in runs:
-            print(' run: ', run)
+            print(" run:", run)
 
-            path = f'{mainpath}/{study}/analysis/snapshots/{experiment_name}/run_{run}'
-            if not os.path.exists(path):
-                os.makedirs(path)
+            snapshot_root = f"{args.out_path}/{args.study_name}/analysis/snapshots/{experiment_name}/run_{run}"
+            os.makedirs(snapshot_root, exist_ok=True)
 
-            db = open_async_database_sqlite(f'{mainpath}/{study}/{experiment_name}/run_{run}')
+            db_path = f"{args.out_path}/{args.study_name}/{experiment_name}/run_{run}"
+            print(db_path)
+            if not os.path.exists(db_path):
+                raise FileNotFoundError(
+                    f"Database not found at '{db_path}'. "
+                    "Make sure this matches the Experiment's DB location."
+                )
 
-            for gen in generations:
-                print('  gen: ', gen)
-                path_gen = f'{path}/gen_{gen}'
-                if os.path.exists(path_gen):
-                    print(f'{path_gen} already exists!')
-                else:
-                    os.makedirs(path_gen)
+            engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+            Session = sessionmaker(bind=engine, expire_on_commit=False)
 
-                    async with AsyncSession(db) as session:
+            with Session() as session:
+                # Quick sanity check to avoid wasting time on empty DBs
+                total_survivor_gens = session.query(func.count(GenerationSurvivor.generation.distinct())).scalar()
+                if total_survivor_gens == 0:
+                    print("  (no completed generations found in DB)")
+                    continue
 
-                        rows = ((await session.execute(select(DbEnvconditions).order_by(DbEnvconditions.id))).all())
-                        env_conditions = {}
-                        for c_row in rows:
-                            env_conditions[c_row[0].id] = literal_eval(c_row[0].conditions)
-                            os.makedirs(f'{path}/gen_{gen}/env{c_row[0].id}')
+                for gen in generations:
+                    print("  gen:", gen)
 
-                        rows = (
-                            (await session.execute(select(DbEAOptimizer))).all()
-                        )
-                        max_modules = rows[0].DbEAOptimizer.max_modules
-                        substrate_radius = rows[0].DbEAOptimizer.substrate_radius
-                        plastic_body = rows[0].DbEAOptimizer.plastic_body
-                        plastic_brain = rows[0].DbEAOptimizer.plastic_brain
+                    gen_dir = f"{snapshot_root}/gen_{gen}"
+                    if os.path.exists(gen_dir):
+                        print(f"    {gen_dir} already exists!")
+                        continue
+                    os.makedirs(gen_dir, exist_ok=True)
 
-                        query = select(DbEAOptimizerGeneration, DbEAOptimizerIndividual, DbFloat)\
-                            .filter(DbEAOptimizerGeneration.generation_index.in_([gen]) \
-                                   & (DbEAOptimizerGeneration.individual_id == DbEAOptimizerIndividual.individual_id)
-                                   & (DbEAOptimizerGeneration.env_conditions_id == DbEAOptimizerIndividual.env_conditions_id)
-                                   & (DbFloat.id == DbEAOptimizerIndividual.float_id)
-                                   )
+                    # Join survivors with their robots for this generation
+                    rows = (
+                        session.query(Robot, GenerationSurvivor)
+                        .join(GenerationSurvivor, GenerationSurvivor.robot_id == Robot.robot_id)
+                        .filter(GenerationSurvivor.generation == gen)
+                        .order_by(GenerationSurvivor.fitness.desc().nullslast())
+                        .all()
+                    )
 
-                        if len(env_conditions) > 1:
-                            query = query.order_by(DbEAOptimizerGeneration.seasonal_dominated.desc(),
-                                                   DbEAOptimizerGeneration.individual_id.asc(),
-                                                   DbEAOptimizerGeneration.env_conditions_id.asc())
-                        else:
-                            query = query.order_by(DbFloat.disp_y.desc())
+                    if not rows:
+                        print("    (no survivors for this generation)")
+                        continue
 
-                        rows = ((await session.execute(query)).all())
+                    for idx, (robot_row, surv_row) in enumerate(rows[:numberrobots]):
+                        genome = robot_row.genome
 
-                        #for idx, r in enumerate(rows):
-                        for idx, r in enumerate(rows[0:numberrobots]):
-                            #print('ind',r.DbEAOptimizerIndividual.individual_id )
-                            
-                            genotype = (
-                                await GenotypeSerializer.from_database(
-                                    session, [r.DbEAOptimizerIndividual.genotype_id]
-                                )
-                            )[0]
-                          
-                            phenotype, queried_substrate = develop(genotype, genotype.mapping_seed, max_modules, tfs[idsy], substrate_radius,
-                                                env_conditions[r.DbEAOptimizerGeneration.env_conditions_id],
-                                                                   len(env_conditions), plastic_body, plastic_brain
-                            )
-                            render = Render()
-                            fit = r.DbFloat.disp_y
-                            fit = round(fit, 2) if fit is not None and fit is not -math.inf else 'none'
-                            img_path = f'{path_gen}/env{r.DbEAOptimizerGeneration.env_conditions_id}/' \
-                                       f'{idx}_{fit}_{r.DbEAOptimizerIndividual.individual_id}.png'
-                            render.render_robot(phenotype.body.core, img_path)
+                        phenotype = EA.develop_phenotype(genome, tf_for_exp)
+                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, gen_dir)
+
+
+                      #  fit = surv_row.fitness
+                        # old script used 'none' when -inf or None; mirror that
+                     #   fit_safe = round(float(fit), 2) if (fit is not None and fit is not -math.inf) else "none"
+
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("study")
-    parser.add_argument("experiments")
-    parser.add_argument("tfs")
-    parser.add_argument("runs")
-    parser.add_argument("generations")
-    parser.add_argument("mainpath")
-
-    asyncio.run(main(parser))
-
-# can be run from root
+    main()

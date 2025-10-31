@@ -13,8 +13,8 @@ fi
 source "$params_file"
 
 # when not needed, just fails
-mkdir ${out_path}/${study}
-mkdir ${out_path}/${study}/analysis
+mkdir ${out_path}/${study_name}
+mkdir ${out_path}/${study_name}/analysis
 
 
 possible_screens=()
@@ -45,7 +45,7 @@ while true
 
        screenstudy="$(cut -d'_' -f2 <<<"$obj")"
 
-          if [[ "$screenstudy" == "${study}" ]]; then
+          if [[ "$screenstudy" == "${study_name}" ]]; then
            printf "\n screen ${obj} is on\n"
               screen="$(cut -d'_' -f3 <<<"$obj")"
 
@@ -71,7 +71,7 @@ while true
         for experiment in "${experiments[@]}"
         do
 
-         file="${out_path}/${study}/${experiment}_${run}.log";
+         file="${out_path}/${study_name}/${experiment}_${run}.log";
      
          #check experiments status
          if [[ -f "$file" ]]; then
@@ -113,17 +113,17 @@ while true
         run=$(cut -d'_' -f2 <<<"${to_d}")
         idx=$( echo ${experiments[@]/${exp}//} | cut -d/ -f1 | wc -w | tr -d ' ' )
 
-        # nice -n19 python3  experiments/${study}/${algorithm}.py
-       screen -d -m -S _${study}_${free_screens[$p]}_${to_d} -L -Logfile ${out_path}/${study}/${exp}_${run}".log" \
+        # nice -n19 python3  experiments/${study_name}/${algorithm}.py
+       screen -d -m -S _${study_name}_${free_screens[$p]}_${to_d} -L -Logfile ${out_path}/${study_name}/${exp}_${run}".log" \
                python3  algorithms/${algorithm}.py --out_path ${out_path} \
-               --experiment_name ${exp} --env_conditions ${env_conditions} --run ${run} --study=${study} \
+               --experiment_name ${exp} --env_conditions ${env_conditions} --run ${run} --study_name=${study_name} \
                --num_generations ${num_generations} --population_size ${population_size} --offspring_size ${offspring_size} \
                --simulation_time ${simulation_time} --sim_path ${sim_path} \
                --crossover_prob ${crossover_prob} --mutation_prob ${mutation_prob}  \
                --max_voxels ${max_voxels}  --tfs ${tfs[$idx]} \
                ;
 
-        printf "\n >> (re)starting ${study}_${free_screens[$p]}_${to_d} \n\n"
+        printf "\n >> (re)starting ${study_name}_${free_screens[$p]}_${to_d} \n\n"
         p=$((${p}+1))
 
     done
@@ -138,7 +138,7 @@ while true
 
       #./experiments/automation/watch_and_record.sh $params_file
 
-      pkill -f ${study}_loop
+      pkill -f ${study_name}_loop
       exit;
    fi
 

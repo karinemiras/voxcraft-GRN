@@ -1,37 +1,41 @@
 import os
 import sys
 import numpy as np
+from pathlib import Path
 
-from experiment import Experiment
-from EA_classes import Individual
-from GRN_3D import GRN, initialization, mutation_type1, unequal_crossover
-
-# TODO: use more elegant path import
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# make voxcratf folder the root
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
+from algorithms.experiment import Experiment
+from algorithms.EA_classes import Individual
+from algorithms.GRN_3D import GRN, initialization, mutation_type1, unequal_crossover
 from simulation.simulation_resources import simulate
-from utils import draw_phenotype
-from metrics import phenotype_abs_metrics, behavior_abs_metrics, relative_metrics
-from config import Config
+from utils.metrics import phenotype_abs_metrics, behavior_abs_metrics, relative_metrics
+from utils.config import Config
 
 
+# Simple non-standard EA:
+# uses tournaments for parent selection
+# creates a pool (m+l) and does survival selection with tournaments
 class EA(Experiment):
-    def __init__(self):
-        args = Config()._get_params()
+    def __init__(self, args=None):
+        # Allow instantiation-inject args OR fallback to config-inject
+        args = args or Config()._get_params()
+
         super().__init__(args)  # sets out_path, DB, session, rng, id_counter
 
         # experiment-level params used by EA logic
         self.MAX_GENOME_SIZE = 1000
         self.INI_GENOME_SIZE = 150
         self.PROMOTOR_THRESHOLD = 0.8
-        self.TYPES_NUCLEOTIDES = 6
 
         self.sim_path = args.sim_path
-        self.CUBE_FACE_SIZE = args.cube_face_size
+        self.cube_face_size = args.cube_face_size
         self.max_voxels = args.max_voxels
         self.tfs = args.tfs
         self.plastic = args.plastic
         self.env_conditions = args.env_conditions
-        self.POPULATION_SIZE = args.population_size
+        self.population_size = args.population_size
         self.offspring_size = args.offspring_size
         self.crossover_prob = args.crossover_prob
         self.mutation_prob = args.mutation_prob
@@ -41,13 +45,12 @@ class EA(Experiment):
 
     # ---------- EA-specific utilities ----------
 
-    def develop_phenotype(self, genome):
+    def develop_phenotype(self, genome, tfs):
         phenotype = GRN(
             promoter_threshold=self.PROMOTOR_THRESHOLD,
-            types_nucleotides=self.TYPES_NUCLEOTIDES,
             max_voxels=self.max_voxels,
-            cube_face_size=self.CUBE_FACE_SIZE,
-            tfs=self.tfs,
+            cube_face_size=self.cube_face_size,
+            tfs=tfs,
             genotype=genome,
             env_conditions=self.env_conditions,
             plastic=self.plastic,
@@ -75,7 +78,6 @@ class EA(Experiment):
             child_genome = unequal_crossover(
                 self.rng,
                 self.PROMOTOR_THRESHOLD,
-                self.TYPES_NUCLEOTIDES,
                 self.MAX_GENOME_SIZE,
                 list(parent1.genome),
                 list(parent2.genome),
@@ -95,22 +97,25 @@ class EA(Experiment):
     # ---------- Main run ----------
 
     def run(self):
+
+        super().recover_db()
+
         last_gen, recovered_population = self._recover_state()
 
         if recovered_population is None:
             # Fresh start
-            generation = 0
-            population = self.initialize_population(self.POPULATION_SIZE)
+            generation = 1
+            population = self.initialize_population(self.population_size)
             for ind in population:
-                ind.phenotype = self.develop_phenotype(ind.genome)
+                ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
                 phenotype_abs_metrics(ind)
                 simulate(ind.phenotype, self.sim_path, 1)
                 behavior_abs_metrics(ind)
             relative_metrics(population, self.fitness_metric)
 
-            # persist parents as both robots and survivors for gen 0
+            # persist parents as both robots and survivors for gen 1
             self._persist_generation_atomic(generation, population, population)
-            start_gen = 1
+            start_gen = generation + 1
             print(f"Finished generation {generation}.")
         else:
             # Continue from the next generation after the last completed one
@@ -121,7 +126,7 @@ class EA(Experiment):
                 f"population size = {len(population)}, next id = {self.id_counter + 1}"
             )
 
-        for generation in range(start_gen, self.num_generations):
+        for generation in range(start_gen, self.num_generations + 1):
             # Generate offspring
             offspring = []
             for _ in range(self.offspring_size):
@@ -132,8 +137,7 @@ class EA(Experiment):
                 self.mutate(child)
                 offspring.append(child)
 
-                child.phenotype = self.develop_phenotype(child.genome)
-                # draw_phenotype(child.phenotype, child.id, self.CUBE_FACE_SIZE, self.out_path)
+                child.phenotype = self.develop_phenotype(child.genome, self.tfs)
                 phenotype_abs_metrics(child)
                 simulate(child.phenotype, self.sim_path, 1)
                 behavior_abs_metrics(child)
@@ -145,7 +149,7 @@ class EA(Experiment):
             # Select next generation (unique winners)
             new_population = []
             pool = pool.copy()
-            for _ in range(self.POPULATION_SIZE):
+            for _ in range(self.population_size):
                 k = min(self.tournament_k, len(pool))
                 contestants = self.rng.sample(pool, k)
                 winner = max(contestants, key=lambda ind: ind.fitness)

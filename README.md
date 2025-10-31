@@ -1,8 +1,19 @@
 # Voxcraft-python
-Python interface for [voxcraft-sim](https://github.com/voxcraft/voxcraft-sim)
+Python interface for [voxcraft-sim](https://github.com/voxcraft/voxcraft-sim) - follow voxcraft-sim installation first.
 
-Based on https://github.com/jpp46/Voxcraft.jl
+# Voxcraft-GRN
+voxel-robots for voxcraft represented by GRNs.
 
-To simulate robots with Google Colab, follow [this](https://colab.research.google.com/drive/1lFcDNmUYrb3eQSXdW2Qg6MloPxyhxOXk?usp=sharing) example
-# voxcraft-GRN
-# voxcraft-GRN
+Multiple python libraries are needed: 
+
+pip install numpy
+
+pip install matplotlib
+
+pip install lxml
+
+[TODO list all others]
+
+> Run random_np_to_voxels.py to generate a voxel robot represented by a random numpy.
+
+> Run random_grn_to_voxels.py to generate a voxel robot represented by a random Gene Regulatory Network.

@@ -4,9 +4,9 @@ import sys
 import pandas as pd
 from sqlalchemy import create_engine, select
 
-# make repo root importable (adjust two dirs up if needed)
+# make repo root importable 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from algorithms.EA_classes import Robot, GenerationSurvivor  # your ORM models
+from algorithms.EA_classes import Robot, GenerationSurvivor 
 
 
 class Analysis:

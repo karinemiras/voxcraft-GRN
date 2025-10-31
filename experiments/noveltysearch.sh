@@ -14,14 +14,18 @@ sim_path="/home/ripper8/projects/voxcraft/voxcraft-sim"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study="GRNvoxels"
+study_name="GRNvoxels2"
 experiments="noveltysearch,novelty"
+
+# one tf definition per experiment
 tfs="reg2m3,reg2m3"
-env_conditions="none"
+
+# one set of conditions per experiment
+env_conditions="none,none"
 
 ####
 
-nruns=2
+nruns=3
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -36,6 +40,8 @@ algorithm="basic_EA"
 
 fitness_metric="uniqueness"
 
+plastic=0
+
 num_generations="10"
 
 population_size="10"
@@ -44,7 +50,7 @@ offspring_size="10"
 
 # bash loop frequency: adjust seconds according to exp size, e.g, 300.
 # (low values for short experiments will try to spawn and log too often)
-delay_setup_script=5
+delay_setup_script=30
 
 # ?
 num_terminals=2

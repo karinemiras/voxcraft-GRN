@@ -1,12 +1,15 @@
 # experiment.py
-import os
+import os, sys
 import random
 import sqlite3
 from sqlalchemy import create_engine, func, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
+from pathlib import Path
 
-from EA_classes import Base, Robot, GenerationSurvivor, Individual, ExperimentInfo
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
+from algorithms.EA_classes import Base, Robot, GenerationSurvivor, Individual, ExperimentInfo
 
 
 # Enable FK enforcement in SQLite (otherwise FK errors won't trip the transaction)
@@ -33,8 +36,9 @@ class Experiment:
         self.out_path = f"{args.out_path}/{args.study_name}/{args.experiment_name}"
         os.makedirs(self.out_path, exist_ok=True)
         self.db_path = os.path.join(self.out_path, f'run_{args.run}')
+      #  self.tfs = args.tfs
 
-        # DB
+    def recover_db(self):
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False, future=True)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine, expire_on_commit=False)
@@ -93,7 +97,7 @@ class Experiment:
             for r, gs in rows:
                 ind = self._individual_from_robot(r)
                 # Hook into subclass to rebuild phenotype
-                ind.phenotype = self.develop_phenotype(ind.genome)
+                ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
                 ind.fitness = float(gs.fitness or 0.0)
                 ind.uniqueness = float(gs.uniqueness or 0.0)
                 population.append(ind)
