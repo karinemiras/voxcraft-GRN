@@ -22,9 +22,9 @@ def simulate(phenotype, sim_path, thread):
 
     # Create two materials with different properties
     # returns the material ID
-    mat1 = vxa.add_material(RGBA=(220, 220, 220), E=1e6, RHO=1e4)  # bone
-    mat2 = vxa.add_material(RGBA=(255, 230, 128), E=1e4, RHO=1e4, CTE=0.5, TempPhase=0) # soft (actuated)
-    mat3 = vxa.add_material(RGBA=(180, 30, 40), E=1e3, RHO=1e4, CTE=0.5, TempPhase=0.5) # soft (actuated)
+    mat1 = vxa.add_material(RGBA=(10, 10, 10), E=1e6, RHO=1e4)  # stiff, passive
+    mat2 = vxa.add_material(RGBA=(200, 0, 0), E=1e4, RHO=1e4, CTE=0.5, TempPhase=0)  # soft (actuated)
+    mat3 = vxa.add_material(RGBA=(100, 0, 67), E=1e3, RHO=1e4, CTE=0.5, TempPhase=0)  # softer (actuated)
 
     # Write out the vxa to data/ directory
     # TODO vxa.write(f"{sim_path}/thread_{thread}/base.vxa")

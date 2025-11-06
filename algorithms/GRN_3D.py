@@ -159,7 +159,8 @@ class GRN:
                 # try to grow new cell
                 self.place_voxel(cell)
 
-                if self.quantity_voxels == self.max_voxels - 1:
+                # max voxels
+                if self.quantity_voxels == self.max_voxels -1:
                     maximum_reached = True
                     break
 
