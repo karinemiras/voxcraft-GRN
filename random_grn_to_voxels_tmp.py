@@ -11,11 +11,11 @@ from simulation.VoxcraftVXD import VXD
 USER_VOXCRAFT_FOLDER = 'voxcraft-sim/inputs'
 
 
-INI_GENOME_SIZE = 150
+INI_GENOME_SIZE = 1000#150
 genome = initialization(random.Random(), INI_GENOME_SIZE)
 
 phenotype = GRN(
-    max_voxels=10,
+    max_voxels=3,
     cube_face_size=4,
     genotype=genome,
 ).develop()
@@ -39,15 +39,17 @@ print(trimmed_phenotype_materials)
 # Generate a Base VXA file
 vxa = VXA(EnableExpansion=1, VaryTempEnabled=1, TempEnabled=1, SimTime=5, TempAmplitude=1, TempPeriod=2)
 
-# Create materials with different properties
+# Create two materials with different properties
 # E is stiffness in Pascals
 # RHO is the density
 # CTE is the coefficient of thermal expansion (proportional to voxel size)
 # TempPhase 0-1 (in relation to period)
-
-mat1 = vxa.add_material(RGBA=(10, 10, 10), E=5e+008, RHO=1000)  # stiff (bone), passive
-mat2 = vxa.add_material(RGBA=(200, 0, 0),  E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0)  # soft (muscle), actuated
+#mat1 = vxa.add_material(RGBA=(10, 10, 10), E=5e+008, RHO=1000)  # stiff (bone), passive
+mat1 = vxa.add_material(RGBA=(200, 0, 0), E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0)  # soft (muscle), actuated
+mat2 = vxa.add_material(RGBA=(200, 0, 0), E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0)  # soft (muscle), actuated
 mat3 = vxa.add_material(RGBA=(100, 0, 67), E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0.5)  # soft (muscle), actuated
+
+#RHO=1e+006
 
 
 # Write out the vxa to data/ directory

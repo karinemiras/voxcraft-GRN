@@ -27,7 +27,7 @@ print('robot exported:\n', body)
 
 # Generate a VXD file
 vxd = VXD()
-vxd.set_tags(RecordVoxel=1) # pass vxd tags in here to overwite vxa tags
+vxd.set_tags(RecordVoxel=1) # pass vxd tags in here to overwrite vxa tags
 vxd.set_data(body)
 # Write out the vxd to data directory
 vxd.write(f"{USER_VOXCRAFT_FOLDER}/robot.vxd")
