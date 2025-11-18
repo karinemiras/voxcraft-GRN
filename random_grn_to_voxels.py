@@ -8,7 +8,7 @@ from simulation.VoxcraftVXD import VXD
 
 
 # USER SHOULD CHANGE THIS !
-USER_VOXCRAFT_FOLDER = 'voxcraft-sim/inputs'
+USER_VOXCRAFT_FOLDER = '/home/ripper8/projects/working_data'
 
 
 INI_GENOME_SIZE = 150
@@ -37,7 +37,7 @@ trimmed_phenotype_materials = trimmed_phenotype_materials[:, :, z_mask]
 print('robot: ')
 print(trimmed_phenotype_materials)
 # Generate a Base VXA file
-vxa = VXA(EnableExpansion=1, VaryTempEnabled=1, TempEnabled=1, SimTime=5, TempAmplitude=1, TempPeriod=2)
+vxa = VXA(EnableExpansion=1, VaryTempEnabled=1, TempEnabled=1, SimTime=5, TempAmplitude=1, TempPeriod=2, EnableCilia=1)
 
 # Create materials with different properties
 # E is stiffness in Pascals
@@ -46,9 +46,9 @@ vxa = VXA(EnableExpansion=1, VaryTempEnabled=1, TempEnabled=1, SimTime=5, TempAm
 # TempPhase 0-1 (in relation to period)
 
 mat1 = vxa.add_material(RGBA=(10, 10, 10), E=5e+008, RHO=1000)  # stiff (bone), passive
-mat2 = vxa.add_material(RGBA=(200, 0, 0),  E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0)  # soft (muscle), actuated
-mat3 = vxa.add_material(RGBA=(100, 0, 67), E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0.5)  # soft (muscle), actuated
-
+mat2 = vxa.add_material(RGBA=(200, 0, 0),  E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0) # soft (muscle), actuated
+# mat3 = vxa.add_material(RGBA=(0, 0, 67), E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0.5) # soft (muscle), actuated offphase
+mat3 = vxa.add_material(RGBA=(0, 0, 67), E=5e+006, RHO=1e4, CTE=0.5, hasCilia=1) # soft (muscle), actuated, w cilia
 
 # Write out the vxa to data/ directory
 vxa.write(f"{USER_VOXCRAFT_FOLDER}/base.vxa")

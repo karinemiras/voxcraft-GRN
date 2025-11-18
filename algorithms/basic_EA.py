@@ -20,28 +20,28 @@ from utils.config import Config
 class EA(Experiment):
     def __init__(self, args=None):
         # Allow instantiation-inject args OR fallback to config-inject
-        args = args or Config()._get_params()
+        self.args =  Config()._get_params()
 
-        super().__init__(args)  # sets out_path, DB, session, rng, id_counter
+        super().__init__(self.args)  # sets out_path, DB, session, rng, id_counter
 
         # experiment-level params used by EA logic
         self.MAX_GENOME_SIZE = 1000
         self.INI_GENOME_SIZE = 150
         self.PROMOTOR_THRESHOLD = 0.8
 
-        self.sim_path = args.sim_path
-        self.cube_face_size = args.cube_face_size
-        self.max_voxels = args.max_voxels
-        self.tfs = args.tfs
-        self.plastic = args.plastic
-        self.env_conditions = args.env_conditions
-        self.population_size = args.population_size
-        self.offspring_size = args.offspring_size
-        self.crossover_prob = args.crossover_prob
-        self.mutation_prob = args.mutation_prob
-        self.tournament_k = args.tournament_k
-        self.num_generations = args.num_generations
-        self.fitness_metric = args.fitness_metric
+        self.docker_path = self.args.docker_path
+        self.cube_face_size = self.args.cube_face_size
+        self.max_voxels = self.args.max_voxels
+        self.tfs = self.args.tfs
+        self.plastic = self.args.plastic
+        self.env_conditions = self.args.env_conditions
+        self.population_size = self.args.population_size
+        self.offspring_size = self.args.offspring_size
+        self.crossover_prob = self.args.crossover_prob
+        self.mutation_prob = self.args.mutation_prob
+        self.tournament_k = self.args.tournament_k
+        self.num_generations = self.args.num_generations
+        self.fitness_metric = self.args.fitness_metric
 
     # ---------- EA-specific utilities ----------
 
@@ -109,7 +109,7 @@ class EA(Experiment):
             for ind in population:
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
                 phenotype_abs_metrics(ind)
-                simulate(ind.phenotype, self.sim_path, 1)
+                simulate(ind, self.args)
                 behavior_abs_metrics(ind)
             relative_metrics(population, self.fitness_metric)
 
@@ -139,7 +139,7 @@ class EA(Experiment):
 
                 child.phenotype = self.develop_phenotype(child.genome, self.tfs)
                 phenotype_abs_metrics(child)
-                simulate(child.phenotype, self.sim_path, 1)
+                simulate(child, self.args)
                 behavior_abs_metrics(child)
 
             # Combine parents and offspring into a pool

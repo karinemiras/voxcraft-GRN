@@ -11,6 +11,22 @@ class Config():
         # Simulation and experiment params
 
         parser.add_argument(
+            "--out_path",
+            required=False,
+            default="",
+            type=str,
+            help="path for results files"
+        )
+
+        parser.add_argument(
+            "--docker_path",
+            required=False,
+            default="",
+            type=str,
+            help="path for docker"
+        )
+
+        parser.add_argument(
             "--study_name",
             required=False,
             default="home/ripper8/projects/working_data/defaultstudy",
@@ -161,22 +177,6 @@ class Config():
             required=False,
             default=10,
             type=int,
-        )
-
-        parser.add_argument(
-            "--out_path",
-            required=False,
-            default="",
-            type=str,
-            help="path for results files"
-        )
-
-        parser.add_argument(
-            "--sim_path",
-            required=False,
-            default="",
-            type=str,
-            help="temporary path for voxcraft files"
         )
 
         parser.add_argument(

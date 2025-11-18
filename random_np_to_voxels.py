@@ -13,8 +13,8 @@ vxa = VXA(EnableExpansion=1,  VaryTempEnabled=1, SimTime=5, TempAmplitude=1, Tem
 # Create two materials with different properties
 # returns the material ID
 mat1 = vxa.add_material(RGBA=(0, 140, 0), E=1e8, RHO=1e4)  # stiffer, passive
-mat2 = vxa.add_material(RGBA=(55, 0, 0), E=1e7, RHO=1e4, CTE=0.5) # softer, active
-mat3 = vxa.add_material(RGBA=(60, 0, 90), E=1e7, RHO=1e4, CTE=0.5, TempPhase=0.5) # softer, active
+mat2 = vxa.add_material(RGBA=(55, 0, 0), E=1e6, RHO=1e4, CTE=0.5) # softer, active
+mat3 = vxa.add_material(RGBA=(60, 0, 90), E=1e6, RHO=1e4, CTE=0.5, TempPhase=0.5) # softer, active
 print('materials: ', mat1, mat2, mat3)
 
 # Write out the vxa to data/ directory

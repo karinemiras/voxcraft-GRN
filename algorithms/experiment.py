@@ -39,6 +39,7 @@ class Experiment:
       #  self.tfs = args.tfs
 
     def recover_db(self):
+        # by default sqlalquemy does not overwrite db, but recovers it if existent instead
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False, future=True)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine, expire_on_commit=False)
