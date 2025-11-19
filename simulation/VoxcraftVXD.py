@@ -16,9 +16,9 @@ class VXD:
         etree.SubElement(history, "RecordStepSize").text = str(RecordStepSize) #Capture image every 100 time steps
         etree.SubElement(history, "RecordVoxel").text = str(RecordVoxel) # Add voxels to the visualization
         etree.SubElement(history, "RecordLink").text = str(RecordLink) # Add links to the visualization
-        etree.SubElement(history, "RecordFixedVoxels").text = str(RecordFixedVoxels) 
+        etree.SubElement(history, "RecordFixedVoxels").text = str(RecordFixedVoxels)
 
-    def set_data(self, data, cilia=None):
+    def set_data(self, data, cilia=None, phase_offsets=None):
         root = self.tree.getroot()
 
         X_Voxels, Y_Voxels, Z_Voxels  = data.shape
@@ -29,7 +29,7 @@ class VXD:
                 for x in range(X_Voxels):
                     body_flatten[k, z] = data[x, y, z]
                     k += 1
-        
+
         structure = etree.SubElement(root, "Structure")
         structure.set('replace', 'VXA.VXC.Structure')
         structure.set('Compression', 'ASCII_READABLE')
@@ -43,6 +43,28 @@ class VXD:
         for i in range(Z_Voxels):
             string = "".join([f"{c}" for c in body_flatten[:,i]])
             etree.SubElement(data_tag, "Layer").text = etree.CDATA(string)
+
+
+        #### phase ### included by karine into caitlin's version, based on johuas (julia) version
+        if phase_offsets is not None:
+            assert phase_offsets.shape == data.shape, "phase_offsets must match data shape"
+
+            # Flatten phases in same order as body_flatten
+            phase_flatten = np.zeros((X_Voxels * Y_Voxels, Z_Voxels), dtype=float)
+            for z in range(Z_Voxels):
+                k = 0
+                for y in range(Y_Voxels):
+                    for x in range(X_Voxels):
+                        phase_flatten[k, z] = phase_offsets[x, y, z]
+                        k += 1
+
+            phase_tag = etree.SubElement(structure, "PhaseOffset")
+            for z in range(Z_Voxels):
+                # Julia: string(phase[:, :, i][:]) → "[0.0,0.5,...]"
+                vals = ",".join(f"{v:.3f}" for v in phase_flatten[:, z])
+                layer_str = f"[{vals}]"
+                etree.SubElement(phase_tag, "Layer").text = etree.CDATA(layer_str)
+        #### phase ###
 
         # set cilia forces
         if cilia is not None:

@@ -6,8 +6,7 @@ from simulation.VoxcraftVXD import VXD
 # USER SHOULD CHANGE THIS !
 USER_VOXCRAFT_FOLDER = 'voxcraft-sim/demos'
 
-
-np.random.seed(12)
+np.random.seed(978)
 
 # Generate a Base VXA file
 # See here for list of vxa tags: https://gpuvoxels.readthedocs.io/en/docs/
@@ -19,13 +18,11 @@ vxa = VXA(EnableExpansion=1,
 
 # Create two materials with different properties
 # returns the material ID
-mat1 = vxa.add_material(RGBA=(0, 0, 100), E=1e8, RHO=1e4) # softer, active
 mat2 = vxa.add_material(RGBA=(100, 0, 0), E=1e6, RHO=1e4, CTE=0.5) # softer, active
 mat3 = vxa.add_material(RGBA=(0, 100, 0), E=1e6, RHO=1e4, CTE=0.5, TempPhase=0.5) # softer, active
 
 # phase per material ID, matching how you defined them
 MAT_PHASE = {
-    mat1: 0.0,
     mat2: 0.0,   # active, base phase
     mat3: 0.5,   # active, π out of phase
 }
@@ -34,15 +31,7 @@ MAT_PHASE = {
 vxa.write(f"{USER_VOXCRAFT_FOLDER}/base.vxa")
 
 # Create random body array between 0 and maximum material ID
-body = np.random.randint(0, 4, size=(2, 2, 1))
-
-body = np.array([
-    [[3],
-     [3]],
-    [[2],
-     [2]]
-])
-
+body = np.random.randint(0, 3, size=(2, 2, 1))
 print('robot exported:\n', body)
 
 

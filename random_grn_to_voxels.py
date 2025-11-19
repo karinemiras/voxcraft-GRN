@@ -8,8 +8,8 @@ from simulation.VoxcraftVXD import VXD
 
 
 # USER SHOULD CHANGE THIS !
-USER_VOXCRAFT_FOLDER = '/home/ripper8/projects/working_data'
-
+#USER_VOXCRAFT_FOLDER = '/home/ripper8/projects/working_data'
+USER_VOXCRAFT_FOLDER = 'voxcraft-sim/demos'
 
 INI_GENOME_SIZE = 150
 genome = initialization(random.Random(), INI_GENOME_SIZE)
@@ -37,7 +37,13 @@ trimmed_phenotype_materials = trimmed_phenotype_materials[:, :, z_mask]
 print('robot: ')
 print(trimmed_phenotype_materials)
 # Generate a Base VXA file
-vxa = VXA(EnableExpansion=1, VaryTempEnabled=1, TempEnabled=1, SimTime=5, TempAmplitude=1, TempPeriod=2, EnableCilia=1)
+vxa = VXA(EnableExpansion=1,
+          VaryTempEnabled=1,
+          TempEnabled=1,
+          SimTime=5,
+          TempAmplitude=1,
+          TempPeriod=2,
+          EnableCilia=1)
 
 # Create materials with different properties
 # E is stiffness in Pascals

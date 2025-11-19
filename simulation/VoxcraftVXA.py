@@ -184,3 +184,4 @@ class VXA:
 
     def set_fitness_function(self):
         pass
+
