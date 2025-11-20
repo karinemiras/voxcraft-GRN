@@ -14,17 +14,17 @@ docker_path="/workspace"
 # exps names should not be fully contained in each other
 
 study_name="GRNvoxels"
-experiments="noveltysearch"
+experiments="locomotion"
 
 # one tf definition per experiment
-tfs="reg2m3,reg2m3"
+tfs="reg2m3"
 
 # one set of conditions per experiment
-env_conditions="none,none"
+env_conditions="none"
 
 ####
 
-nruns=10
+nruns=1
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -67,6 +67,6 @@ crossover_prob=1
 
 simulation_time=10
 
-max_voxels=32
+max_voxels=20
 
 ### PARAMS END ###

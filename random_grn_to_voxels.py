@@ -1,4 +1,3 @@
-
 import numpy as np
 from math import pi
 import random
@@ -8,11 +7,10 @@ from simulation.VoxcraftVXD import VXD
 
 
 # USER SHOULD CHANGE THIS !
-#USER_VOXCRAFT_FOLDER = '/home/ripper8/projects/working_data'
 USER_VOXCRAFT_FOLDER = 'voxcraft-sim/demos'
 
 INI_GENOME_SIZE = 150
-genome = initialization(random.Random(), INI_GENOME_SIZE)
+genome = initialization(random.Random(57), INI_GENOME_SIZE)
 
 phenotype = GRN(
     max_voxels=10,
@@ -20,30 +18,30 @@ phenotype = GRN(
     genotype=genome,
 ).develop()
 
-# convert GRNs-generated cells into a numpy that represent the voxels of the robot.
+# convert GRN-generated cells into a numpy that represents the voxels of the robot.
 phenotype_materials = np.zeros(phenotype.shape, dtype=int)
 for index, value in np.ndenumerate(phenotype):
     phenotype_materials[index] = value.voxel_type if value != 0 else 0
 
 # Remove empty layers (prevents starting with a floating body)
-trimmed_phenotype_materials = phenotype_materials
-x_mask = np.any(trimmed_phenotype_materials != 0, axis=(1, 2))
-trimmed_phenotype_materials = trimmed_phenotype_materials[x_mask]
-y_mask = np.any(trimmed_phenotype_materials != 0, axis=(0, 2))
-trimmed_phenotype_materials = trimmed_phenotype_materials[:, y_mask]
-z_mask = np.any(trimmed_phenotype_materials != 0, axis=(0, 1))
-trimmed_phenotype_materials = trimmed_phenotype_materials[:, :, z_mask]
+body = phenotype_materials
+x_mask = np.any(body != 0, axis=(1, 2))
+body = body[x_mask]
+y_mask = np.any(body != 0, axis=(0, 2))
+body = body[:, y_mask]
+z_mask = np.any(body != 0, axis=(0, 1))
+body = body[:, :, z_mask]
 
-print('robot: ')
-print(trimmed_phenotype_materials)
 # Generate a Base VXA file
 vxa = VXA(EnableExpansion=1,
           VaryTempEnabled=1,
           TempEnabled=1,
           SimTime=5,
           TempAmplitude=1,
-          TempPeriod=2,
-          EnableCilia=1)
+          TempPeriod=2)
+
+in_phase = 0
+off_phase = 0.5
 
 # Create materials with different properties
 # E is stiffness in Pascals
@@ -51,21 +49,34 @@ vxa = VXA(EnableExpansion=1,
 # CTE is the coefficient of thermal expansion (proportional to voxel size)
 # TempPhase 0-1 (in relation to period)
 
-mat1 = vxa.add_material(RGBA=(10, 10, 10), E=5e+008, RHO=1000)  # stiff (bone), passive
-mat2 = vxa.add_material(RGBA=(200, 0, 0),  E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0) # soft (muscle), actuated
-# mat3 = vxa.add_material(RGBA=(0, 0, 67), E=5e+006, RHO=1e4, CTE=0.5, TempPhase=0.5) # soft (muscle), actuated offphase
-mat3 = vxa.add_material(RGBA=(0, 0, 67), E=5e+006, RHO=1e4, CTE=0.5, hasCilia=1) # soft (muscle), actuated, w cilia
+mat1 = vxa.add_material(RGBA=(0, 0, 100), E=1e8, RHO=1e4, TempPhase=in_phase) # stiffer, passive
+mat2 = vxa.add_material(RGBA=(100, 0, 0), E=1e6, RHO=1e4, CTE=0.5, TempPhase=in_phase) # softer, active
+mat3 = vxa.add_material(RGBA=(0, 100, 0), E=1e6, RHO=1e4, CTE=0.5, TempPhase=off_phase) # softer, active
 
 # Write out the vxa to data/ directory
 vxa.write(f"{USER_VOXCRAFT_FOLDER}/base.vxa")
 
+# material vs phase data for VXD
+MAT_PHASE = {
+    mat1: in_phase,
+    mat2: in_phase,
+    mat3: off_phase,
+}
+
+# Phase array: same shape as body, phase comes from the material that occupies each voxel
+phase = np.zeros_like(body, dtype=float)
+for mat_id, phase_val in MAT_PHASE.items():
+    phase[body == mat_id] = phase_val
+
+print('robot exported:\n', body)
+
 # Generate a VXD file
 vxd = VXD()
-vxd.set_tags(RecordVoxel=1) # pass vxd tags in here to overwrite vxa tags
-vxd.set_data(trimmed_phenotype_materials)
+vxd.set_tags(RecordVoxel=1)
+vxd.set_data(body, phase_offsets=phase)
 # Write out the vxd to data/
 vxd.write(f"{USER_VOXCRAFT_FOLDER}/robot.vxd")
 
 # Now you can simulate robot.vxd in voxcraft-sim with this terminal command
-# ./voxcraft-sim -i ../inputs/ >  robot.history
+# ./voxcraft-sim -i ../demos/ >  robot.history
 # later, you can load the robot.history into voxcraft-viz to watch the simulation results

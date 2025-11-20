@@ -9,7 +9,7 @@ sys.path.append(str(ROOT))
 from algorithms.experiment import Experiment
 from algorithms.EA_classes import Individual
 from algorithms.GRN_3D import GRN, initialization, mutation_type1, unequal_crossover
-from simulation.simulation_resources import simulate
+from simulation.simulation_resources import *
 from utils.metrics import phenotype_abs_metrics, behavior_abs_metrics, relative_metrics
 from utils.config import Config
 
@@ -106,10 +106,15 @@ class EA(Experiment):
             # Fresh start
             generation = 1
             population = self.initialize_population(self.population_size)
+
             for ind in population:
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
                 phenotype_abs_metrics(ind)
-                simulate(ind, self.args)
+                prepare_robot_files(ind, self.args)
+           
+            simulate_voxcraft_batch(population, self.args)
+
+            for ind in population:
                 behavior_abs_metrics(ind)
             relative_metrics(population, self.fitness_metric)
 
@@ -117,6 +122,7 @@ class EA(Experiment):
             self._persist_generation_atomic(generation, population, population)
             start_gen = generation + 1
             print(f"Finished generation {generation}.")
+
         else:
             # Continue from the next generation after the last completed one
             population = recovered_population
@@ -139,8 +145,12 @@ class EA(Experiment):
 
                 child.phenotype = self.develop_phenotype(child.genome, self.tfs)
                 phenotype_abs_metrics(child)
-                simulate(child, self.args)
-                behavior_abs_metrics(child)
+                prepare_robot_files(child, self.args)
+
+            simulate_voxcraft_batch(offspring, self.args)
+
+            for ind in offspring:
+                behavior_abs_metrics(ind)
 
             # Combine parents and offspring into a pool
             pool = population + offspring
@@ -171,5 +181,18 @@ class EA(Experiment):
         print("Finished optimizing.")
 
 
+import time
+
 if __name__ == "__main__":
+    start = time.time()
     EA().run()
+    end = time.time()
+    print(f"\n[RUN-TIME]  {end - start:.2f} seconds")
+
+
+
+
+
+
+
+

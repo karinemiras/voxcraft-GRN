@@ -6,14 +6,10 @@ class Config():
     def _get_params(self):
         parser = argparse.ArgumentParser()
 
-        # EA params
-
-        # Simulation and experiment params
-
         parser.add_argument(
             "--out_path",
             required=False,
-            default="",
+            default="/working_data",
             type=str,
             help="path for results files"
         )
@@ -21,7 +17,7 @@ class Config():
         parser.add_argument(
             "--docker_path",
             required=False,
-            default="",
+            default="/workspace",
             type=str,
             help="path for docker"
         )
@@ -29,7 +25,7 @@ class Config():
         parser.add_argument(
             "--study_name",
             required=False,
-            default="home/ripper8/projects/working_data/defaultstudy",
+            default="defaultstudy",
             type=str,
             help="",
         )
@@ -45,30 +41,29 @@ class Config():
         parser.add_argument(
             "--population_size",
             required=False,
-            default=10,
+            default=100,
             type=int,
         )
 
         parser.add_argument(
             "--offspring_size",
             required=False,
-            default=10,
+            default=100,
             type=int,
         )
 
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=5,
+            default=100,
             type=int,
         )
 
         parser.add_argument(
-            "--generations",
+            "--simulation_time",
             required=False,
-            default="",
-            type=str,
-            help="list of generations of be analyzed",
+            default=10,
+            type=int,
         )
 
         parser.add_argument(
@@ -81,7 +76,7 @@ class Config():
         parser.add_argument(
             "--max_voxels",
             required=False,
-            default=30, #32
+            default=20,
             type=int,
             help="",
         )
@@ -97,7 +92,7 @@ class Config():
         parser.add_argument(
             "--cube_face_size",
             required=False,
-            default=4,
+            default=3,
             type=int,
             help="",
         )
@@ -135,10 +130,17 @@ class Config():
         parser.add_argument(
             "--fitness_metric",
             required=False,
-            default="uniqueness",
+            default="fitness",
             type=str,
         )
 
+        parser.add_argument(
+            "--generations",
+            required=False,
+            default="",
+            type=str,
+            help="list of generations of be analyzed",
+        )
 
         parser.add_argument(
             "--experiment_name",
@@ -170,13 +172,6 @@ class Config():
             default="",
             type=str,
             help="list of all runs",
-        )
-
-        parser.add_argument(
-            "--simulation_time",
-            required=False,
-            default=10,
-            type=int,
         )
 
         parser.add_argument(
