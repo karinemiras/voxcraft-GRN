@@ -6,7 +6,6 @@ from simulation.VoxcraftVXD import VXD
 # USER SHOULD CHANGE THIS !
 USER_VOXCRAFT_FOLDER = 'voxcraft-sim/demos'
 
-
 np.random.seed(12)
 
 # Generate a Base VXA file
@@ -14,42 +13,42 @@ np.random.seed(12)
 vxa = VXA(EnableExpansion=1,
           VaryTempEnabled=1,
           SimTime=5,
+          TempEnabled=1,
           TempAmplitude=1,
-          TempPeriod=2) # pass vxa tags in here
+          TempPeriod=2)
 
-# Create two materials with different properties
+in_phase = 0
+off_phase = 0.5
+
+# Create materials with different properties
+# E is stiffness in Pascals
+# RHO is the density
+# CTE is the coefficient of thermal expansion (proportional to voxel size)
+# TempPhase 0-1 (in relation to period)
 # returns the material ID
-mat1 = vxa.add_material(RGBA=(0, 0, 100), E=1e8, RHO=1e4) # softer, active
-mat2 = vxa.add_material(RGBA=(100, 0, 0), E=1e6, RHO=1e4, CTE=0.5) # softer, active
-mat3 = vxa.add_material(RGBA=(0, 100, 0), E=1e6, RHO=1e4, CTE=0.5, TempPhase=0.5) # softer, active
-
-# phase per material ID, matching how you defined them
-MAT_PHASE = {
-    mat1: 0.0,
-    mat2: 0.0,   # active, base phase
-    mat3: 0.5,   # active, π out of phase
-}
+mat1 = vxa.add_material(RGBA=(0, 0, 100), E=1e8, RHO=1e4, TempPhase=in_phase) # softer, active
+mat2 = vxa.add_material(RGBA=(100, 0, 0), E=1e6, RHO=1e4, CTE=0.5, TempPhase=in_phase) # softer, active
+mat3 = vxa.add_material(RGBA=(0, 100, 0), E=1e6, RHO=1e4, CTE=0.5, TempPhase=off_phase) # softer, active
 
 # Write out the vxa to data/ directory
 vxa.write(f"{USER_VOXCRAFT_FOLDER}/base.vxa")
 
+# material vs phase data for VXD
+MAT_PHASE = {
+    mat1: in_phase,
+    mat2: in_phase,
+    mat3: off_phase,
+}
+
 # Create random body array between 0 and maximum material ID
 body = np.random.randint(0, 4, size=(2, 2, 1))
-
-body = np.array([
-    [[3],
-     [3]],
-    [[2],
-     [2]]
-])
-
-print('robot exported:\n', body)
-
 
 # Phase array: same shape as body, phase comes from the material that occupies each voxel
 phase = np.zeros_like(body, dtype=float)
 for mat_id, phase_val in MAT_PHASE.items():
     phase[body == mat_id] = phase_val
+
+print('robot exported:\n', body)
 print(phase)
 
 # Generate a VXD file

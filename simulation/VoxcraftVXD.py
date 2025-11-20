@@ -45,7 +45,7 @@ class VXD:
             etree.SubElement(data_tag, "Layer").text = etree.CDATA(string)
 
 
-        #### phase ### included by karine into caitlin's version, based on johuas (julia) version
+        #### phase ### included by karine
         if phase_offsets is not None:
             assert phase_offsets.shape == data.shape, "phase_offsets must match data shape"
 
@@ -60,10 +60,9 @@ class VXD:
 
             phase_tag = etree.SubElement(structure, "PhaseOffset")
             for z in range(Z_Voxels):
-                # Julia: string(phase[:, :, i][:]) → "[0.0,0.5,...]"
                 vals = ",".join(f"{v:.3f}" for v in phase_flatten[:, z])
-                layer_str = f"[{vals}]"
-                etree.SubElement(phase_tag, "Layer").text = etree.CDATA(layer_str)
+                # do NOT place into extra brackets
+                etree.SubElement(phase_tag, "Layer").text = etree.CDATA(vals)
         #### phase ###
 
         # set cilia forces
