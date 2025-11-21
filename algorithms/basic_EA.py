@@ -187,7 +187,13 @@ if __name__ == "__main__":
     start = time.time()
     EA().run()
     end = time.time()
-    print(f"\n[RUN-TIME]  {end - start:.2f} seconds")
+
+    elapsed = end - start
+    hours = int(elapsed // 3600)
+    minutes = int((elapsed % 3600) // 60)
+    seconds = elapsed % 60
+    print(f"\n[RUN-TIME]  {hours}h {minutes}m {seconds:.1f}s")
+
 
 
 

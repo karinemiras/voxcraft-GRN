@@ -1,11 +1,11 @@
 #!/bin/bash
-# run this script from the ROOT: ./experiments/automation/setup-experiments.sh pathPARAMSFILE/PARAMSFILE.sh
+# run this script from the ROOT (inside docker): ./experiments/automation/setup-experiments.sh pathPARAMSFILE/PARAMSFILE.sh
 #set -e
 #set -x
 
 if [ $# -eq 0 ]
   then
-    params_file="experiments/noveltysearch.sh"
+    params_file="experiments/locomotion.sh"
   else
     params_file=$1
 fi

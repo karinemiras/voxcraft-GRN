@@ -1,19 +1,10 @@
-# Voxcraft-python
-Python interface for [voxcraft-sim](https://github.com/voxcraft/voxcraft-sim) - follow voxcraft-sim installation first.
+# How to use 
 
-# Voxcraft-GRN
-voxel-robots for voxcraft represented by GRNs.
+- Install the simulator Voxcraft in Docker: [voxcraft-sim](https://github.com/voxcraft/voxcraft-sim)
+(more [info](https://voxcraft.github.io/design))
 
-Multiple python libraries are needed: 
+- install requirements.txt
 
-pip install numpy
+> Run **random_np_to_voxels.py** to generate a voxel robot represented by a random numpy.
 
-pip install matplotlib
-
-pip install lxml
-
-[TODO list all others]
-
-> Run random_np_to_voxels.py to generate a voxel robot represented by a random numpy.
-
-> Run random_grn_to_voxels.py to generate a voxel robot represented by a random Gene Regulatory Network.
+> Run **random_grn_to_voxels.py** to generate a voxel robot represented by a random Gene Regulatory Network.

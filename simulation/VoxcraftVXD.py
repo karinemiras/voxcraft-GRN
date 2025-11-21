@@ -2,6 +2,8 @@ import numpy as np
 from lxml import etree
 import os
 
+# adapted from https://github.com/caitlingrasso/Voxcraft-python and https://github.com/jpp46/Voxcraft.jl
+
 class VXD:
 
     def __init__(self):

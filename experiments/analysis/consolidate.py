@@ -7,15 +7,16 @@ from sqlalchemy import create_engine, select
 # make repo root importable 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from algorithms.EA_classes import Robot, GenerationSurvivor 
+from utils.config import Config
 
 
 class Analysis:
     def __init__(self, args):
-        self.study = args.study
+        self.study_name = args.study_name
         self.experiments = [e.strip() for e in args.experiments.split(",") if e.strip()]
         self.runs = [int(r) for r in args.runs.split(",") if r.strip()]
         self.final_gen = int(args.final_gen)
-        self.path = f"{args.mainpath}/{self.study}"
+        self.path = f"{args.out_path}/{self.study_name}"
 
         # which columns to summarize
         self.metrics = ["uniqueness",
@@ -46,6 +47,7 @@ class Analysis:
             for run in self.runs:
                 # user provided a directory path earlier; support both cases
                 db_base = os.path.join(self.path, experiment, f"run_{run}")
+                print(db_base)
                 db_path = self._resolve_db_path(db_base)
                 if db_path is None:
                     print(f"[warn] DB not found, skipping: {db_base}")
@@ -136,12 +138,5 @@ class Analysis:
 
 # --- CLI ----------------------------------------------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Consolidate EA results.")
-    parser.add_argument("study")
-    parser.add_argument("experiments")  # comma-separated
-    parser.add_argument("runs")         # comma-separated
-    parser.add_argument("final_gen")
-    parser.add_argument("mainpath")
-    args = parser.parse_args()
-
+    args = Config()._get_params()
     Analysis(args).consolidate()

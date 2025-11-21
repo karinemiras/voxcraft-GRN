@@ -4,8 +4,12 @@
 ### PARAMS INI ###
 
 # this should be the path for the output files (choose YOUR OWN dir!)
+
 out_path="/working_data"
+# /home/ripper8/projects/working_data
+
 docker_path="/workspace"
+# /home/ripper8/projects/voxcraft
 
 # DO NOT use underline ( _ ) in the study and experiments names
 # delimiter of three vars below is coma. example:
@@ -24,7 +28,7 @@ env_conditions="none"
 
 ####
 
-nruns=1
+nruns=10
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -37,15 +41,15 @@ watchruns=$runs
 
 algorithm="basic_EA"
 
-fitness_metric="uniqueness"
+fitness_metric="fitness"
 
 plastic=0
 
-num_generations="100"
+num_generations="50"
 
-population_size="100"
+population_size="50"
 
-offspring_size="100"
+offspring_size="50"
 
 # bash loop frequency: adjust seconds according to exp size, e.g, 300.
 # (low values for short experiments will try to spawn and log too often)
@@ -65,8 +69,8 @@ mutation_prob=0.9
 
 crossover_prob=1
 
-simulation_time=10
+simulation_time=4.4
 
-max_voxels=20
+max_voxels=15
 
 ### PARAMS END ###

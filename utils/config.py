@@ -41,28 +41,28 @@ class Config():
         parser.add_argument(
             "--population_size",
             required=False,
-            default=100,
+            default=50, #4
             type=int,
         )
 
         parser.add_argument(
             "--offspring_size",
             required=False,
-            default=100,
+            default=50, #4
             type=int,
         )
 
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=100,
+            default=50, #2
             type=int,
         )
 
         parser.add_argument(
             "--simulation_time",
             required=False,
-            default=10,
+            default=4.4,
             type=int,
         )
 
@@ -76,7 +76,7 @@ class Config():
         parser.add_argument(
             "--max_voxels",
             required=False,
-            default=20,
+            default=15,
             type=int,
             help="",
         )
@@ -140,6 +140,14 @@ class Config():
             default="",
             type=str,
             help="list of generations of be analyzed",
+        )
+
+        parser.add_argument(
+            "--final_gen",
+            required=False,
+            default="",
+            type=str,
+            help="last generation to be analyzed"
         )
 
         parser.add_argument(

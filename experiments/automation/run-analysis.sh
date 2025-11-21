@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# run this script from the ROOT: ./experiments/automation/run-analysis.sh pathPARAMSFILE/PARAMSFILE.sh
+# run this script from the ROOT (inside docker): ./experiments/automation/run-analysis.sh pathPARAMSFILE/PARAMSFILE.sh
+# if u want to run it out of docker, update out_path and docker_path
 
 if [ $# -eq 0 ]
   then
-    params_file="experiments/noveltysearch.sh"
+    params_file="experiments/locomotion.sh"
   else
     params_file=$1
 fi
@@ -13,9 +14,14 @@ set -a
 source "$params_file"
 set +a
 
-#python experiments/analysis/consolidate.py $study $experiments $runs $generations $out_path;
+#python3 ${docker_path}/experiments/analysis/consolidate.py \
+# --study_name "$study_name" \
+# --experiments "$experiments" \
+# --runs "$runs" \
+# --out_path "$out_path" \
+# --final_gen "$final_gen";
 
-python experiments/analysis/snapshots_bests.py \
+python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --study_name "$study_name" \
   --experiments "$experiments" \
   --tfs "$tfs" \
@@ -27,10 +33,10 @@ python experiments/analysis/snapshots_bests.py \
   --algorithm "$algorithm" \
   --plastic "$plastic"
 
-
+#
 #papermill "experiments/analysis/analysis.ipynb" \
 #          "experiments/analysis/analysis-executed.ipynb" \
-#          -p study "$study" \
+#          -p study_name  "$study_name " \
 #          -p experiments "$experiments" \
 #          -p runs "$runs" \
 #          -p generations "$generations" \

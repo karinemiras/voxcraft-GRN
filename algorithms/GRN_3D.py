@@ -1,5 +1,10 @@
 import numpy as np
+import sys
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
+from algorithms.voxel_types import VOXEL_TYPES
 
 # a Gene Regulatory Network
 class GRN:
@@ -31,13 +36,13 @@ class GRN:
         self.cube_face_size = cube_face_size
         self.structural_products = None
 
-        self.type_voxels = {'bone': 1, 'fat': 2, 'muscle': 3}
+        self.voxel_types = VOXEL_TYPES
 
         # if u increase number of reg tfs without increasing voxels tf or geno size,
         # too many single-=cell robots are sampled
         if tfs == 'reg2m3':  # balanced, number of regulatory tfs similar to number of voxels tfs
             self.regulatory_products = 2
-            self.structural_products = self.type_voxels
+            self.structural_products = self.voxel_types
         elif tfs == '':  # more regulatory, number of regulatory tfs greater than the number of voxels tfs
             pass
 
@@ -372,8 +377,7 @@ class GRN:
         mother_tf_injection = float(self.genes[first_gene_idx][min_value_idx])
 
         middle_pos = [s // 2 for s in self.phenotype.shape]
-        # TODO: define type of first voxel based on expression?
-        first_cell = Cell(voxel_type=self.type_voxels['muscle'], parent_cell=None, xyz_coordinates=middle_pos)
+        first_cell = Cell(voxel_type=self.voxel_types['muscle'], parent_cell=None, xyz_coordinates=middle_pos)
         first_cell.xyz_coordinates = middle_pos
         # distributes injection among diffusion sites
         first_cell.transcription_factors[mother_tf_label] = \

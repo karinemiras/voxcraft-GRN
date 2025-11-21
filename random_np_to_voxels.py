@@ -57,6 +57,9 @@ vxd.set_data(body, phase_offsets=phase)
 # Write out the vxd to data directory
 vxd.write(f"{USER_VOXCRAFT_FOLDER}/robot.vxd")
 
+# vxd file can have any name, but there must be only one per folder
+# vxa file must be called base.vxa
+
 # Now you can simulate robot.vxd in voxcraft-sim with this terminal command
 # ./voxcraft-sim -i ../inputs/ >  robot.history
 # later, you can load the robot.history into voxcraft-viz to watch the simulation results

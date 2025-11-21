@@ -28,25 +28,6 @@ def main():
     class_name = "EA"
     module = importlib.import_module(module_name)
     cls = getattr(module, class_name)
-    args = SimpleNamespace(
-        max_voxels=args.max_voxels,
-        plastic=args.plastic,
-        env_conditions=args.env_conditions,
-        cube_face_size=args.cube_face_size,
-        tfs=None,
-        out_path=None,
-        study_name=None,
-        experiment_name=None,
-        run=None,
-        sim_path=None,
-        population_size=None,
-        offspring_size=None,
-        crossover_prob=None,
-        mutation_prob=None,
-        tournament_k=None,
-        num_generations=None,
-        fitness_metric=None
-    )
     EA = cls(args)
 
     numberrobots = 10  # top-N per generation
@@ -60,6 +41,7 @@ def main():
             print(" run:", run)
 
             snapshot_root = f"{args.out_path}/{args.study_name}/analysis/snapshots/{experiment_name}/run_{run}"
+            print(snapshot_root)
             os.makedirs(snapshot_root, exist_ok=True)
 
             db_path = f"{args.out_path}/{args.study_name}/{experiment_name}/run_{run}"
@@ -106,7 +88,7 @@ def main():
                         genome = robot_row.genome
 
                         phenotype = EA.develop_phenotype(genome, tf_for_exp)
-                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, gen_dir)
+                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, round(surv_row.fitness, 4), gen_dir)
 
 
                       #  fit = surv_row.fitness

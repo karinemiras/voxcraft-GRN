@@ -1,0 +1,6 @@
+numpy
+sqlalchemy
+matplotlib
+scipy
+pandas
+lxml

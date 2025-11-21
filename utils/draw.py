@@ -1,15 +1,28 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
+import sys
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
+from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS
 
-def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, path):
+def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, fitness, path):
 
     # Define color map for values in body
     color_map = {
-        1: (220/255, 220/255, 220/255, 0.5),  # Bone
-        2: (255/255, 230/255, 128/255, 0.5),  # Fat
-        3: (180/255, 30/255, 40/255, 0.5)     # Muscle
+        VOXEL_TYPES['bone']: (VOXEL_TYPES_COLORS['bone'][0]/255,
+                              VOXEL_TYPES_COLORS['bone'][1]/255,
+                              VOXEL_TYPES_COLORS['bone'][2]/255, 0.5),
+
+        VOXEL_TYPES['fat']: (VOXEL_TYPES_COLORS['fat'][0]/255,
+                             VOXEL_TYPES_COLORS['fat'][1]/255,
+                             VOXEL_TYPES_COLORS['fat'][2]/255, 0.5),
+
+        VOXEL_TYPES['muscle']: (VOXEL_TYPES_COLORS['muscle'][0]/255,
+                                VOXEL_TYPES_COLORS['muscle'][1]/255,
+                                VOXEL_TYPES_COLORS['muscle'][2]/255, 0.5)
     }
 
     # Function to draw a single 1x1x1 cube
@@ -59,6 +72,6 @@ def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, path):
     ax.set_zlabel('Z')
     #ax.set_title('Voxel Visualization (1x1x1 Cubes, Correct Colors)')
     plt.tight_layout()
-    print(path)
+    #print(path)
     # Save the image
-    plt.savefig(f"{path}/{id_individual}.png", dpi=300)
+    plt.savefig(f"{path}/{id_individual}_{fitness}.png", dpi=300)
