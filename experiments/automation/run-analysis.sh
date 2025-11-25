@@ -14,12 +14,12 @@ set -a
 source "$params_file"
 set +a
 
-#python3 ${docker_path}/experiments/analysis/consolidate.py \
-# --study_name "$study_name" \
-# --experiments "$experiments" \
-# --runs "$runs" \
-# --out_path "$out_path" \
-# --final_gen "$final_gen";
+python3 ${docker_path}/experiments/analysis/consolidate.py \
+ --study_name "$study_name" \
+ --experiments "$experiments" \
+ --runs "$runs" \
+ --out_path "$out_path" \
+ --final_gen "$final_gen";
 
 python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --study_name "$study_name" \

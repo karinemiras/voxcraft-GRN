@@ -33,7 +33,7 @@ class Experiment:
 
     def __init__(self, args):
         # paths
-        self.out_path = f"{args.out_path}/{args.study_name}/{args.experiment_name}"
+        self.out_path = f"{args.out_path}/{args.study_name}/{args.experiment_name}/run_{args.run}"
         os.makedirs(self.out_path, exist_ok=True)
         self.db_path = os.path.join(self.out_path, f'run_{args.run}')
       #  self.tfs = args.tfs
@@ -65,7 +65,21 @@ class Experiment:
 
     def _individual_from_robot(self, r: Robot) -> Individual:
         ind = Individual(genome=r.genome, id_counter=r.robot_id)
+        
         ind.num_voxels = float(r.num_voxels) if r.num_voxels is not None else 0.0
+
+        ind.bone_count = float(r.bone_count or 0.0)
+        ind.bone_prop = float(r.bone_prop or 0.0)
+
+        ind.fat_count = float(r.fat_count or 0.0)
+        ind.fat_prop = float(r.fat_prop or 0.0)
+
+        ind.muscle_count = float(r.muscle_count or 0.0)
+        ind.muscle_prop = float(r.muscle_prop or 0.0)
+
+        ind.muscle_offp_count = float(r.muscle_offp_count or 0.0)
+        ind.muscle_offp_prop = float(r.muscle_offp_prop or 0.0)
+
         return ind
 
     def _recover_state(self):
@@ -132,12 +146,20 @@ class Experiment:
                     born_generation=int(born_generation),
                     genome=individual.genome,
                     num_voxels=float(individual.num_voxels) if individual.num_voxels is not None else 0.0,
+                    bone_count=float(individual.bone_count) if individual.bone_count is not None else 0.0,
+                    bone_prop=float(individual.bone_prop) if individual.bone_prop is not None else 0.0,
+                    fat_count=float(individual.fat_count) if individual.fat_count is not None else 0.0,
+                    fat_prop=float(individual.fat_prop) if individual.fat_prop is not None else 0.0,
+                    muscle_count=float(individual.muscle_count) if individual.muscle_count is not None else 0.0,
+                    muscle_prop=float(individual.muscle_prop) if individual.muscle_prop is not None else 0.0,
+                    muscle_offp_count=float(individual.muscle_offp_count) if individual.muscle_offp_count is not None else 0.0,
+                    muscle_offp_prop=float(individual.muscle_offp_prop) if individual.muscle_offp_prop is not None else 0.0,
                 )
             )
-        else:
-            row.num_voxels = (
-                float(individual.num_voxels) if individual.num_voxels is not None else row.num_voxels
-            )
+        # else:
+        #     row.num_voxels = (
+        #         float(individual.num_voxels) if individual.num_voxels is not None else row.num_voxels
+        #     )
 
     def _stage_generation_survivors(self, s, generation, survivors):
         for ind in survivors:

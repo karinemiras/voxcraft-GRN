@@ -17,10 +17,10 @@ study_name="GRNvoxels"
 experiments="noveltysearch"
 
 # one tf definition per experiment
-tfs="reg2m3,reg2m3"
+tfs="reg2"
 
 # one set of conditions per experiment
-env_conditions="none,none"
+env_conditions="none"
 
 ####
 

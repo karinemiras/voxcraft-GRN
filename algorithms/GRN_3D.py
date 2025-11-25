@@ -12,7 +12,7 @@ class GRN:
     diffusion_sites_qt = 6
 
     def __init__(self, promoter_threshold=0.8, max_voxels=10, cube_face_size=3,
-                  genotype=None, tfs='reg2m3', env_conditions=None, plastic=None):
+                  genotype=None, tfs='reg2', env_conditions=None, plastic=None):
 
         self.max_voxels = max_voxels
         self.genotype = genotype
@@ -40,10 +40,10 @@ class GRN:
 
         # if u increase number of reg tfs without increasing voxels tf or geno size,
         # too many single-=cell robots are sampled
-        if tfs == 'reg2m3':  # balanced, number of regulatory tfs similar to number of voxels tfs
+        if tfs == 'reg2':  # balanced, number of regulatory tfs similar to number of voxels tfs
             self.regulatory_products = 2
             self.structural_products = self.voxel_types
-        elif tfs == '':  # more regulatory, number of regulatory tfs greater than the number of voxels tfs
+        elif tfs == '':  # more regulatory, number of regulatory tfs much greater than the number of voxels tfs
             pass
 
         # structural_tfs use initial indexes and regulatory tfs uses final indexes

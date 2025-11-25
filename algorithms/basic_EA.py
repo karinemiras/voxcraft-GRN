@@ -2,8 +2,9 @@ import os
 import sys
 import numpy as np
 from pathlib import Path
+import shutil
 
-# make voxcratf folder the root
+# make voxcraft folder the root
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 from algorithms.experiment import Experiment
@@ -110,9 +111,12 @@ class EA(Experiment):
             for ind in population:
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
                 phenotype_abs_metrics(ind)
-                prepare_robot_files(ind, self.args)
-           
-            simulate_voxcraft_batch(population, self.args)
+
+                if self.args.run_simulation:
+                    prepare_robot_files(ind, self.args)
+
+            if self.args.run_simulation:
+                simulate_voxcraft_batch(population, self.args)
 
             for ind in population:
                 behavior_abs_metrics(ind)
@@ -145,9 +149,12 @@ class EA(Experiment):
 
                 child.phenotype = self.develop_phenotype(child.genome, self.tfs)
                 phenotype_abs_metrics(child)
-                prepare_robot_files(child, self.args)
-
-            simulate_voxcraft_batch(offspring, self.args)
+                
+                if self.args.run_simulation:
+                    prepare_robot_files(child, self.args)
+                    
+            if self.args.run_simulation:
+                simulate_voxcraft_batch(offspring, self.args)
 
             for ind in offspring:
                 behavior_abs_metrics(ind)
@@ -177,6 +184,10 @@ class EA(Experiment):
             self.session.close()
         except Exception:
             pass
+
+        path_robots = f"{self.args.out_path}/{self.args.study_name}/{self.args.experiment_name}/run_{self.args.run}/robots"
+        if os.path.exists(path_robots):
+            shutil.rmtree(path_robots)
 
         print("Finished optimizing.")
 

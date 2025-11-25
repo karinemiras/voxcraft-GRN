@@ -55,14 +55,14 @@ class Config():
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=50, #2
+            default=25, #2
             type=int,
         )
 
         parser.add_argument(
             "--simulation_time",
             required=False,
-            default=4.4,
+            default=2,
             type=int,
         )
 
@@ -84,7 +84,7 @@ class Config():
         parser.add_argument(
             "--tfs",
             required=False,
-            default="reg2m3",
+            default="reg2",
             type=str,
             help="list of tfs config",
         )

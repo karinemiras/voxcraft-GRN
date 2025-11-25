@@ -17,18 +17,18 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="GRNvoxels"
-experiments="locomotion"
+study_name="defaultstudy"
+experiments="defaultexperiment"
 
 # one tf definition per experiment
-tfs="reg2m3"
+tfs="reg2"
 
 # one set of conditions per experiment
 env_conditions="none"
 
 ####
 
-nruns=10
+nruns=6
 
 runs=""
 for i in $(seq 1 $nruns);

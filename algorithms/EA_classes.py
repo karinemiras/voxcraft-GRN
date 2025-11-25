@@ -6,6 +6,7 @@ from sqlalchemy import (
 
 Base = declarative_base()
 
+# DB CLASSES
 
 class ExperimentInfo(Base):
     __tablename__ = "experiment_info"
@@ -21,7 +22,14 @@ class Robot(Base):
     genome = Column(JSON, nullable=False)                 # list or dict; SQLAlchemy will JSON-encode for SQLite
 
     num_voxels = Column(Float, default=0.0)
-
+    bone_count = Column(Float, default=0.0)
+    bone_prop  = Column(Float, default=0.0)
+    fat_count = Column(Float, default=0.0)
+    fat_prop  = Column(Float, default=0.0)
+    muscle_count = Column(Float, default=0.0)
+    muscle_prop  = Column(Float, default=0.0)
+    muscle_offp_count = Column(Float, default=0.0)
+    muscle_offp_prop  = Column(Float, default=0.0)
 
 class GenerationSurvivor(Base):
     __tablename__ = "generation_survivors"
@@ -35,15 +43,25 @@ class GenerationSurvivor(Base):
         PrimaryKeyConstraint("generation", "robot_id", name="pk_generation_robot"),
     )
 
+# EA CLASSES
 
 class Individual:
     def __init__(self, genome, id_counter):
         self.id = id_counter
         self.genome = genome
         self.phenotype = None
+        self.valid = True
 
         # absolute
         self.num_voxels = 0.0
+        self.bone_count = 0.0
+        self.bone_prop = 0.0
+        self.fat_count = 0.0
+        self.fat_prop = 0.0
+        self.muscle_count = 0.0
+        self.muscle_prop = 0.0
+        self.muscle_offp_count = 0.0
+        self.muscle_offp_prop = 0.0
 
         # relative
         self.fitness = 0.0

@@ -5,18 +5,12 @@ import subprocess
 from pathlib import Path
 from math import inf
 
-
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '')))
-# from VoxcraftVXD import VXD
-# from VoxcraftVXA import VXA
-
-
-
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS
 from simulation.VoxcraftVXD import VXD
 from simulation.VoxcraftVXA import VXA
+
 
 def trim_phenotype_materials(phenotype):
     # Remove empty layers (prevents starting with a floating body)
@@ -34,18 +28,49 @@ def prepare_robot_files(individual, args):
 
     phenotype = individual.phenotype
 
-    out_path = f"{args.out_path}/{args.study_name}/{args.experiment_name}/robots/robot{individual.id}"
+    out_path = f"{args.out_path}/{args.study_name}/{args.experiment_name}/run_{args.run}/robots/robot{individual.id}"
     os.makedirs(out_path, exist_ok=True)
 
     body = trim_phenotype_materials(phenotype)
 
-    # pass vxa tags in here
-    vxa = VXA(EnableExpansion=1,
-              VaryTempEnabled=1,
-              TempEnabled=1,
-              SimTime=5,
-              TempAmplitude=1,
-              TempPeriod=2)
+    def amp_for_vol_gain(cte: float, vol_gain: float) -> float:
+        """
+        Given CTE (linear per °C) and desired peak volumetric gain (e.g., 0.5 for +50%),
+        return the required temperature amplitude (ΔT).
+        (1 + cte*ΔT)^3 - 1 = vol_gain  =>  ΔT = ( (1+vol_gain)**(1/3) - 1 ) / cte
+        """
+        return ((1.0 + vol_gain) ** (1.0 / 3.0) - 1.0) / cte
+
+    def jitter_period(base_period: float, frac: float = 0.10) -> float:
+        """Jitter period ±frac to discourage brittle timing hacks."""
+        return base_period * (1.0 + np.random.uniform(-frac, frac))
+
+    CTE = 0.5
+    TARGET_VOL_GAIN = 0.50  # ~50%
+    TEMP_AMP = amp_for_vol_gain(CTE, TARGET_VOL_GAIN)  # ~ 0.289
+    FREQ = 5.0  # Hz
+    BASE_PERIOD = 1.0 / FREQ  # 0.2 s
+    JITTER_FRAC = 0.10  # ±10%
+    SAFE_MAX_LINEAR_STR = 0.30  # disallow >30% linear strain at peak
+    DT_FRAC = 0.4  # tighter than 0.95 for stability with soft + strong actuation
+
+    # Safety guard: linear factor = 1 ± (CTE * TEMP_AMP) must stay reasonable
+    # assert (CTE * TEMP_AMP) < SAFE_MAX_LINEAR_STR, (
+    #     f"Actuation too large: CTE*AMP={CTE * TEMP_AMP:.3f} (limit {SAFE_MAX_LINEAR_STR})"
+    # )
+
+    # ---- build VXA with your conventions --------------------------------------
+    vxa = VXA(
+        SimTime=args.simulation_time,
+        EnableExpansion=1,
+        VaryTempEnabled=1,
+        TempEnabled=1,
+        # Stabilize integration for soft bodies under strong actuation:
+        DtFrac=DT_FRAC,
+        TempPeriod=BASE_PERIOD, # TODO: jitter_period(BASE_PERIOD, JITTER_FRAC),
+        TempAmplitude=TEMP_AMP,  # *** ΔT since TempBase = 0 ***
+        TempBase=0,  # your base
+    )
 
     in_phase = 0
     off_phase = 0.5
@@ -53,13 +78,14 @@ def prepare_robot_files(individual, args):
     # Create materials with different properties
     # E is stiffness in Pascals
     # RHO is the density
-    # CTE is the coefficient of thermal expansion (proportional to voxel size)
+    # CTE is the coefficient of thermal expansion (proportional to voxel size per degree)
     # TempPhase 0-1 (in relation to period)
 
-    mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['bone'], E=1e8, RHO=1e4, TempPhase=in_phase)  # stiffer, passive
-    mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['fat'], E=1e6, RHO=1e4, CTE=0.5, TempPhase=in_phase)  # softer, active
-    mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['muscle'], E=1e6, RHO=1e4, CTE=0.5, TempPhase=off_phase)  # softer, active
-
+    mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['bone'], E=1e8, RHO=1e4)  # stiff, passive
+    mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['fat'], E=7e5, RHO=1.2e4)  # soft, passive, heavier
+    mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['muscle'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase)  # medium-soft, active
+    mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['muscle_offp'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase)  # medium-soft, active
+    
     # Write out the vxa (robot) to data/ directory
     vxa.write(f"{out_path}/base.vxa")
 
@@ -67,7 +93,8 @@ def prepare_robot_files(individual, args):
     MAT_PHASE = {
         mat1: in_phase,
         mat2: in_phase,
-        mat3: off_phase,
+        mat3: in_phase,
+        mat4: off_phase,
     }
 
     # Phase array: same shape as body, phase comes from the material that occupies each voxel
@@ -105,11 +132,21 @@ def simulate_voxcraft_batch(population, args):
     MAX_PARALLEL = 2          # max number of sims at once
     SIM_TIMEOUT = 60          # seconds per robot before we kill it
 
+    out_path_hist = (
+            Path(args.out_path)
+            / args.study_name
+            / args.experiment_name
+            / f"run_{args.run}"
+            / "simulations"
+    )
+    os.makedirs(out_path_hist, exist_ok=True)
+
     def robot_dir_for(ind):
         return (
             Path(args.out_path)
             / args.study_name
             / args.experiment_name
+            / f"run_{args.run}"
             / "robots"
             / f"robot{ind.id}"
         )
@@ -145,6 +182,11 @@ def simulate_voxcraft_batch(population, args):
 
     # --- start processes, at most MAX_PARALLEL at a time ---
     for ind in population:
+
+        # does not evaluate invalid individuals
+        if not ind.valid:
+            continue
+
         robot_dir = robot_dir_for(ind)
 
         if not robot_dir.exists():
@@ -158,8 +200,8 @@ def simulate_voxcraft_batch(population, args):
         if not vxd_file.exists():
             raise FileNotFoundError(f"VXD file missing for {ind.id}: {vxd_file}")
 
-        history_file = robot_dir / f"{ind.id}.history"
-        report_file = robot_dir / f"{ind.id}_report.xml"
+        history_file = out_path_hist / f"{ind.id}.history"
+        report_file = out_path_hist / f"{ind.id}_report.xml"
 
         # throttle: keep at most MAX_PARALLEL running
         while True:
@@ -200,7 +242,7 @@ def simulate_voxcraft_batch(population, args):
             except subprocess.TimeoutExpired:
                 stderr = "<no stderr after kill>"
             out_f.close()
-            ind.fitness = -inf
+            ind.fitness = float('-inf')
             errors.append(f"[TIMEOUT] {ind.id}: {stderr}")
             continue
 
@@ -208,13 +250,13 @@ def simulate_voxcraft_batch(population, args):
 
         if p.returncode != 0:
             print(f"[SIM-ERROR] {ind.id} exit code {p.returncode}")
-            ind.fitness = -inf
+            ind.fitness = float('-inf')
             errors.append(f"[SIM-ERROR] {ind.id}: {stderr}")
             continue
 
         if not history_file.exists():
             msg = f"[SIM-WARN] {ind.id} finished but history file missing: {history_file}"
-            ind.fitness = -inf
+            ind.fitness = float('-inf')
             errors.append(msg)
             continue
 
@@ -222,15 +264,15 @@ def simulate_voxcraft_batch(population, args):
         try:
             fitness = parse_fitness_from_report(report_file)
             ind.fitness = fitness
-            print(f"[FITNESS] {ind.id} = {fitness:.6g}")
+           # print(f"[FITNESS] {ind.id} = {fitness:.6g}")
         except Exception as e:
             msg = f"[SIM-REPORT-ERROR] {ind.id}: {e}"
-            ind.fitness = -inf
+            ind.fitness = float('-inf')
             errors.append(msg)
 
       #  print(f"[SIM-DONE] {ind.id}")
 
-    if errors:
-        print("[SIM-SUMMARY] Some simulations had issues:")
-        for e in errors:
-            print("  " + e)
+    # if errors:
+    #     print("[SIM-SUMMARY] Some simulations had issues:")
+    #     for e in errors:
+    #         print("  " + e)
