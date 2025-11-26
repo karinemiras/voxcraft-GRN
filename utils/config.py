@@ -41,21 +41,21 @@ class Config():
         parser.add_argument(
             "--population_size",
             required=False,
-            default=50, #4
+            default=100,
             type=int,
         )
 
         parser.add_argument(
             "--offspring_size",
             required=False,
-            default=50, #4
+            default=100,
             type=int,
         )
 
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=25, #2
+            default=100,
             type=int,
         )
 
@@ -76,7 +76,7 @@ class Config():
         parser.add_argument(
             "--max_voxels",
             required=False,
-            default=15,
+            default=30,
             type=int,
             help="",
         )
@@ -92,7 +92,7 @@ class Config():
         parser.add_argument(
             "--cube_face_size",
             required=False,
-            default=3,
+            default=4,
             type=int,
             help="",
         )
@@ -130,7 +130,7 @@ class Config():
         parser.add_argument(
             "--fitness_metric",
             required=False,
-            default="fitness",
+            default="uniqueness",
             type=str,
         )
 
@@ -185,7 +185,7 @@ class Config():
         parser.add_argument(
             "--run_simulation",
             required=False,
-            default=1,
+            default=0, #1
             type=int,
             help="If 0, runs optimizer without simulating robots, so behavioral measures are none."
         )

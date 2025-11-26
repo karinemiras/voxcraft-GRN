@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 from algorithms.experiment import Experiment
 from algorithms.EA_classes import Individual
-from algorithms.GRN_3D import GRN, initialization, mutation_type1, unequal_crossover
+from algorithms.GRN_3D import GRN, initialization, mutation_type1, unequal_crossover_prop
 from simulation.simulation_resources import *
 from utils.metrics import phenotype_abs_metrics, behavior_abs_metrics, relative_metrics
 from utils.config import Config
@@ -76,12 +76,12 @@ class EA(Experiment):
 
     def crossover(self, parent1, parent2):
         if self.rng.uniform(0, 1) <= self.crossover_prob:
-            child_genome = unequal_crossover(
+            child_genome = unequal_crossover_prop(
                 self.rng,
                 self.PROMOTOR_THRESHOLD,
                 self.MAX_GENOME_SIZE,
-                list(parent1.genome),
-                list(parent2.genome),
+                parent1,
+                parent2,
             )
         else:
             chosen = self.rng.choice((parent1, parent2))
@@ -117,9 +117,10 @@ class EA(Experiment):
 
             if self.args.run_simulation:
                 simulate_voxcraft_batch(population, self.args)
+    
+                for ind in population:
+                    behavior_abs_metrics(ind)
 
-            for ind in population:
-                behavior_abs_metrics(ind)
             relative_metrics(population, self.fitness_metric)
 
             # persist parents as both robots and survivors for gen 1
@@ -156,8 +157,8 @@ class EA(Experiment):
             if self.args.run_simulation:
                 simulate_voxcraft_batch(offspring, self.args)
 
-            for ind in offspring:
-                behavior_abs_metrics(ind)
+                for ind in offspring:
+                    behavior_abs_metrics(ind)
 
             # Combine parents and offspring into a pool
             pool = population + offspring

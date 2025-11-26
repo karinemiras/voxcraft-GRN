@@ -13,7 +13,7 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="GRNvoxels"
+study_name="vox"
 experiments="noveltysearch"
 
 # one tf definition per experiment
@@ -65,8 +65,10 @@ mutation_prob=0.9
 
 crossover_prob=1
 
-simulation_time=10
-
 max_voxels=32
+
+run_simulation=0
+
+simulation_time=0
 
 ### PARAMS END ###

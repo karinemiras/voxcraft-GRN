@@ -17,8 +17,8 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="defaultstudy"
-experiments="defaultexperiment"
+study_name="vox"
+experiments="locomotion"
 
 # one tf definition per experiment
 tfs="reg2"
@@ -28,7 +28,7 @@ env_conditions="none"
 
 ####
 
-nruns=6
+nruns=5
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -41,15 +41,15 @@ watchruns=$runs
 
 algorithm="basic_EA"
 
-fitness_metric="fitness"
+fitness_metric="displacement_xy"
 
 plastic=0
 
-num_generations="50"
+num_generations="2"
 
-population_size="50"
+population_size="4"
 
-offspring_size="50"
+offspring_size="4"
 
 # bash loop frequency: adjust seconds according to exp size, e.g, 300.
 # (low values for short experiments will try to spawn and log too often)
@@ -69,7 +69,7 @@ mutation_prob=0.9
 
 crossover_prob=1
 
-simulation_time=4.4
+simulation_time=2
 
 max_voxels=15
 

@@ -30,7 +30,7 @@ def main():
     cls = getattr(module, class_name)
     EA = cls(args)
 
-    numberrobots = 10  # top-N per generation
+    numberrobots = 50  # top-N per generation
 
     for exp_idx, experiment_name in enumerate(experiments):
         print(experiment_name)
@@ -44,7 +44,7 @@ def main():
             print(snapshot_root)
             os.makedirs(snapshot_root, exist_ok=True)
 
-            db_path = f"{args.out_path}/{args.study_name}/{experiment_name}/run_{run}"
+            db_path = f"{args.out_path}/{args.study_name}/{experiment_name}/run_{run}/run_{run}"
             print(db_path)
             if not os.path.exists(db_path):
                 raise FileNotFoundError(
@@ -88,13 +88,7 @@ def main():
                         genome = robot_row.genome
 
                         phenotype = EA.develop_phenotype(genome, tf_for_exp)
-                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, round(surv_row.fitness, 4), gen_dir)
-
-
-                      #  fit = surv_row.fitness
-                        # old script used 'none' when -inf or None; mirror that
-                     #   fit_safe = round(float(fit), 2) if (fit is not None and fit is not -math.inf) else "none"
-
+                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, idx, round(surv_row.fitness, 4), gen_dir)
 
 
 if __name__ == "__main__":

@@ -65,18 +65,17 @@ class Experiment:
 
     def _individual_from_robot(self, r: Robot) -> Individual:
         ind = Individual(genome=r.genome, id_counter=r.robot_id)
-        
-        ind.num_voxels = float(r.num_voxels) if r.num_voxels is not None else 0.0
 
+        ind.genome_size = float(r.genome_size) if r.genome_size is not None else 0.0
+        ind.valid = float(r.valid) if r.valid is not None else 0.0
+        ind.displacement_xy = float(r.displacement_xy) if r.displacement_xy is not None else 0.0
+        ind.num_voxels = float(r.num_voxels) if r.num_voxels is not None else 0.0
         ind.bone_count = float(r.bone_count or 0.0)
         ind.bone_prop = float(r.bone_prop or 0.0)
-
         ind.fat_count = float(r.fat_count or 0.0)
         ind.fat_prop = float(r.fat_prop or 0.0)
-
         ind.muscle_count = float(r.muscle_count or 0.0)
         ind.muscle_prop = float(r.muscle_prop or 0.0)
-
         ind.muscle_offp_count = float(r.muscle_offp_count or 0.0)
         ind.muscle_offp_prop = float(r.muscle_offp_prop or 0.0)
 
@@ -145,6 +144,9 @@ class Experiment:
                     robot_id=individual.id,
                     born_generation=int(born_generation),
                     genome=individual.genome,
+                    genome_size = float(individual.genome_size) if individual.genome_size is not None else 0.0,
+                    valid=float(individual.valid) if individual.valid is not None else 0.0,
+                    displacement_xy=float(individual.displacement_xy) if individual.displacement_xy is not None else 0.0,
                     num_voxels=float(individual.num_voxels) if individual.num_voxels is not None else 0.0,
                     bone_count=float(individual.bone_count) if individual.bone_count is not None else 0.0,
                     bone_prop=float(individual.bone_prop) if individual.bone_prop is not None else 0.0,

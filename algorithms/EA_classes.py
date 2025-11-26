@@ -3,6 +3,7 @@ from sqlalchemy import (
     create_engine, Column, Integer, Float, String, JSON, ForeignKey, UniqueConstraint,
     PrimaryKeyConstraint
 )
+from math import inf
 
 Base = declarative_base()
 
@@ -20,7 +21,9 @@ class Robot(Base):
     robot_id = Column(Integer, primary_key=True)          # matches Individual.id
     born_generation = Column(Integer, nullable=False)
     genome = Column(JSON, nullable=False)                 # list or dict; SQLAlchemy will JSON-encode for SQLite
-
+    genome_size = Column(Float, default=0.0)
+    valid = Column(Float, default=0.0)
+    displacement_xy = Column(Float, default=0.0)
     num_voxels = Column(Float, default=0.0)
     bone_count = Column(Float, default=0.0)
     bone_prop  = Column(Float, default=0.0)
@@ -30,6 +33,7 @@ class Robot(Base):
     muscle_prop  = Column(Float, default=0.0)
     muscle_offp_count = Column(Float, default=0.0)
     muscle_offp_prop  = Column(Float, default=0.0)
+
 
 class GenerationSurvivor(Base):
     __tablename__ = "generation_survivors"
@@ -45,14 +49,19 @@ class GenerationSurvivor(Base):
 
 # EA CLASSES
 
+
 class Individual:
     def __init__(self, genome, id_counter):
         self.id = id_counter
         self.genome = genome
+        self.genome_size = 0.0
         self.phenotype = None
-        self.valid = True
+        self.valid = 0  # False: assumes it is invalid until proved otherwise
 
-        # absolute
+        # behavior
+        self.displacement_xy = float('-inf')  # invalid is not evaluated and receives worst value
+
+        # absolute morphology
         self.num_voxels = 0.0
         self.bone_count = 0.0
         self.bone_prop = 0.0

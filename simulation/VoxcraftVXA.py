@@ -77,7 +77,10 @@ class VXA:
         etree.SubElement(sub, "mtVAR").text = 't'
         etree.SubElement(sub, "mtCONST").text = str(self.SimTime)
 
-        fitness = etree.SubElement(simulator, "FitnessFunction") # default - maximum x distance
+        # default FitnessFunction in voxcraft would be maximum x distance
+        fitness = etree.SubElement(simulator, "FitnessFunction")
+        # center-of-mass displacement in meters: x^2 + y^2
+        # voxel size is 1cm
         add = etree.SubElement(fitness, "mtADD")
         mul = etree.SubElement(add, 'mtMUL')
         etree.SubElement(mul, "mtVAR").text = 'x'

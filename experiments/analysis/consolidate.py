@@ -46,7 +46,7 @@ class Analysis:
         for experiment in self.experiments:
             for run in self.runs:
                 # user provided a directory path earlier; support both cases
-                db_base = os.path.join(self.path, experiment, f"run_{run}")
+                db_base = os.path.join(self.path, experiment, f"run_{run}", f"run_{run}")
                 print(db_base)
                 db_path = self._resolve_db_path(db_base)
                 if db_path is None:

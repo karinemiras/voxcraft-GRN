@@ -12,16 +12,28 @@ def relative_metrics(population, fitness_metric):
     uniqueness(population)
     set_fitness(population, fitness_metric)
 
+
 def phenotype_abs_metrics(individual):
     num_voxels(individual)
     update_material_metrics(individual)
     test_validity(individual)
+    #TOOD: moe to other function
+
+    individual.genome_size = len(individual.genome)
+
+
 
 def behavior_abs_metrics(population):
+    # displacement_xy is calculated by voxcraft itself and collected in simulation_resources.py
+    # as center-of-mass displacement in meters: x^2 + y^2
+
+    # TODO: implement others
     pass
+
 
 def num_voxels(individual):               # size / mass proxy
     individual.num_voxels = int((individual.phenotype != 0).sum())
+
 
 def update_material_metrics(individual):
     grid = np.asarray(individual.phenotype, dtype=int)
@@ -36,16 +48,17 @@ def update_material_metrics(individual):
         setattr(individual, f"{name}_count", count)
         setattr(individual, f"{name}_prop", round(prop,2))
 
+
 def set_fitness(population, fitness_metric):
     for ind in population:
-        if ind.valid:
-            ind.fitness = float(getattr(ind, fitness_metric, 0.0))
-        else:
-            ind.fitness = float('-inf')
-            
+       ind.fitness = float(getattr(ind, fitness_metric, 0.0))
+
+
 def test_validity(individual):
-    if individual.muscle_count < 1 or individual.muscle_offp_count < 1:
-        individual.valid = False
+    has_muscle = individual.muscle_count >= 1
+    has_offp   = individual.muscle_offp_count >= 1
+    individual.valid = has_muscle and has_offp
+
 
 def tree_edit_distance(g1, g2):
     a = np.asarray(g1)
@@ -58,6 +71,7 @@ def tree_edit_distance(g1, g2):
     both_nonzero_diff = (a != 0) & (b != 0) & (a != b)  # non-zero vs different non-zero → 0.5 (different material)
 
     return float(one_zero.sum() + 0.5 * both_nonzero_diff.sum())
+
 
 def uniqueness(population, k=10):
     """

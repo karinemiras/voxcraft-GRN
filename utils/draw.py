@@ -8,21 +8,20 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS
 
-def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, fitness, path):
+
+# voxels perspective
+# Np = [x, y, z]
+# X: 4, 1, 1: left / right
+# Y: 1, 4, 1: back / front
+# Z: 1, 1, 4: up / down
+
+
+def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, ranking, fitness, path):
 
     # Define color map for values in body
     color_map = {
-        VOXEL_TYPES['bone']: (VOXEL_TYPES_COLORS['bone'][0]/255,
-                              VOXEL_TYPES_COLORS['bone'][1]/255,
-                              VOXEL_TYPES_COLORS['bone'][2]/255, 0.5),
-
-        VOXEL_TYPES['fat']: (VOXEL_TYPES_COLORS['fat'][0]/255,
-                             VOXEL_TYPES_COLORS['fat'][1]/255,
-                             VOXEL_TYPES_COLORS['fat'][2]/255, 0.5),
-
-        VOXEL_TYPES['muscle']: (VOXEL_TYPES_COLORS['muscle'][0]/255,
-                                VOXEL_TYPES_COLORS['muscle'][1]/255,
-                                VOXEL_TYPES_COLORS['muscle'][2]/255, 0.5)
+        voxel_id: tuple(c / 255 for c in VOXEL_TYPES_COLORS[name]) + (0.5,)
+        for name, voxel_id in VOXEL_TYPES.items()
     }
 
     # Function to draw a single 1x1x1 cube
@@ -72,6 +71,8 @@ def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, fitness, path):
     ax.set_zlabel('Z')
     #ax.set_title('Voxel Visualization (1x1x1 Cubes, Correct Colors)')
     plt.tight_layout()
-    #print(path)
+
     # Save the image
-    plt.savefig(f"{path}/{id_individual}_{fitness}.png", dpi=300)
+    plt.savefig(f"{path}/{ranking}_{fitness}_{id_individual}.png", dpi=300)
+    plt.close(fig)
+

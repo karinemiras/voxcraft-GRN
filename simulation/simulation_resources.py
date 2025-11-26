@@ -3,7 +3,6 @@ import numpy as np
 import time
 import subprocess
 from pathlib import Path
-from math import inf
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
@@ -114,11 +113,13 @@ def prepare_robot_files(individual, args):
     # vxd file can have any name, but there must be only one per folder
     # vxa file must be called base.vxa
 
+
 def simulate_voxcraft_batch(population, args):
     """
     Run voxcraft-sim for all individuals, with at most 2 simulations
     running in parallel at any time. Each simulation has a timeout.
-    After each simulation, read fitness from the report file into ind.fitness.
+    After each simulation, read displacement from the report file into ind.
+    voscraft-sim git version: dd8668f99ff74fb2fc2ee60deb91287a3b519d8f
     """
     sim_bin = Path(args.docker_path) / "voxcraft-sim" / "build" / "voxcraft-sim"
     worker_bin = Path(args.docker_path) / "voxcraft-sim" / "build" / "vx3_node_worker"
@@ -219,7 +220,6 @@ def simulate_voxcraft_batch(population, args):
             "-f",
         ]
 
-       # print(f"[SIM-START] {ind.id} -> {robot_dir}")
         out_f = open(history_file, "w")
         p = subprocess.Popen(
             cmd,
@@ -242,7 +242,6 @@ def simulate_voxcraft_batch(population, args):
             except subprocess.TimeoutExpired:
                 stderr = "<no stderr after kill>"
             out_f.close()
-            ind.fitness = float('-inf')
             errors.append(f"[TIMEOUT] {ind.id}: {stderr}")
             continue
 
@@ -250,27 +249,24 @@ def simulate_voxcraft_batch(population, args):
 
         if p.returncode != 0:
             print(f"[SIM-ERROR] {ind.id} exit code {p.returncode}")
-            ind.fitness = float('-inf')
             errors.append(f"[SIM-ERROR] {ind.id}: {stderr}")
             continue
 
         if not history_file.exists():
             msg = f"[SIM-WARN] {ind.id} finished but history file missing: {history_file}"
-            ind.fitness = float('-inf')
             errors.append(msg)
             continue
 
-        # --- parse fitness ---
+        # --- parse behaviors ---
         try:
-            fitness = parse_fitness_from_report(report_file)
-            ind.fitness = fitness
-           # print(f"[FITNESS] {ind.id} = {fitness:.6g}")
+            # they call it fitness but here it is a behavior that may or not become the fitness
+            displacement_xy = parse_fitness_from_report(report_file)
+            ind.displacement_xy = displacement_xy
         except Exception as e:
             msg = f"[SIM-REPORT-ERROR] {ind.id}: {e}"
-            ind.fitness = float('-inf')
             errors.append(msg)
 
-      #  print(f"[SIM-DONE] {ind.id}")
+        #  print(f"[SIM-DONE] {ind.id}")
 
     # if errors:
     #     print("[SIM-SUMMARY] Some simulations had issues:")

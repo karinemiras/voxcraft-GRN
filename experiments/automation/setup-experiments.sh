@@ -114,14 +114,23 @@ while true
         idx=$( echo ${experiments[@]/${exp}//} | cut -d/ -f1 | wc -w | tr -d ' ' )
 
         # nice -n19 python3  experiments/${study_name}/${algorithm}.py
-      screen -d -m -S _${study_name}_${free_screens[$p]}_${to_d} -L -Logfile ${out_path}/${study_name}/${exp}_${run}".log" \
-               python3  ${docker_path}/algorithms/${algorithm}.py --out_path ${out_path} \
-               --experiment_name ${exp} --env_conditions ${env_conditions} --run ${run} --study_name=${study_name} \
-               --num_generations ${num_generations} --population_size ${population_size} --offspring_size ${offspring_size} \
-               --simulation_time ${simulation_time} --docker_path ${docker_path} \
-               --crossover_prob ${crossover_prob} --mutation_prob ${mutation_prob}  \
-               --max_voxels ${max_voxels}  --tfs ${tfs[$idx]} \
-               ;
+
+    #  screen -d -m -S _${study_name}_${free_screens[$p]}_${to_d} -L -Logfile ${out_path}/${study_name}/${exp}_${run}".log" \
+#               python3  ${docker_path}/algorithms/${algorithm}.py --out_path ${out_path} \
+#               --experiment_name ${exp} --env_conditions ${env_conditions} --run ${run} --study_name=${study_name} \
+#               --num_generations ${num_generations} --population_size ${population_size} --offspring_size ${offspring_size} \
+#               --simulation_time ${simulation_time} --docker_path ${docker_path} \
+#               --crossover_prob ${crossover_prob} --mutation_prob ${mutation_prob}  \
+#               --max_voxels ${max_voxels}  --tfs ${tfs[$idx]}  --run_simulation ${run_simulation} \
+#               ;
+
+        python3  ${docker_path}/algorithms/${algorithm}.py --out_path ${out_path} \
+         --experiment_name ${exp} --env_conditions ${env_conditions} --run ${run} --study_name=${study_name} \
+         --num_generations ${num_generations} --population_size ${population_size} --offspring_size ${offspring_size} \
+         --simulation_time ${simulation_time} --docker_path ${docker_path} \
+         --crossover_prob ${crossover_prob} --mutation_prob ${mutation_prob}  \
+         --max_voxels ${max_voxels}  --tfs ${tfs[$idx]} --run_simulation ${run_simulation} \
+         ;
 
         printf "\n >> (re)starting ${study_name}_${free_screens[$p]}_${to_d} \n\n"
         p=$((${p}+1))

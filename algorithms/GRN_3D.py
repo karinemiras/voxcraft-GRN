@@ -452,6 +452,105 @@ def initialization(rng, ini_genome_size):
     return genotype
 
 
+# unequal crossover (enhanced)
+def unequal_crossover_prop(
+        rng,
+        promoter_threshold,  # must match the param inside the GRN class
+        max_geno_size,
+        parent1,
+        parent2,
+):
+    parent1 = parent1.genome
+    parent2 = parent2.genome
+
+    types_nucleotides = 6
+    # the first nucleotide is the concentration
+    new_genotype = [(parent1[0] + parent2[0]) / 2]
+    p1 = parent1[1:]
+    p2 = parent2[1:]
+
+    # --- helper: find promoter indices in a parent genome (excluding concentration) ---
+    def get_promoters(parent):
+        promotor_sites = []
+        nucleotide_idx = 0
+        while nucleotide_idx < len(parent):
+            if parent[nucleotide_idx] < promoter_threshold:
+                # enough room after promoter to form a full gene
+                if (len(parent) - 1 - nucleotide_idx) >= types_nucleotides:
+                    promotor_sites.append(nucleotide_idx)
+                    nucleotide_idx += types_nucleotides  # skip the gene we just found
+            nucleotide_idx += 1
+        return promotor_sites
+
+    # ---------- FIRST PARENT: choose side randomly (head or tail) ----------
+    promoters_p1 = get_promoters(p1)
+    if promoters_p1:
+        cut_p1 = rng.sample(promoters_p1, 1)[0]
+
+        # NEW: randomly choose whether we take head (0..cut+gene) or tail (cut..end)
+        take_head_p1 = rng.random() < 0.5
+
+        if take_head_p1:
+            # include the promoter and its full gene block (+ types_nucleotides), plus the nucleotide after gene (+1)
+            subset_p1 = p1[0:cut_p1 + types_nucleotides + 1]
+        else:
+            # take from promoter cut to the end (tail), starting at the promoter index
+            subset_p1 = p1[cut_p1:]
+    else:
+        # no promoters found; take nothing from first parent
+        subset_p1 = []
+
+    new_genotype += subset_p1
+
+    # NEW: compute the proportion actually taken from first parent
+    # (relative to its whole genome, excluding concentration)
+    #     - If no nucleotides, proportion is 0.0
+    prop_from_p1 = (len(subset_p1) / len(p1)) if len(p1) > 0 else 0.0
+
+    # ---------- SECOND PARENT: target complementary proportion on a chosen side ----------
+    promoters_p2 = get_promoters(p2)
+
+    # NEW: complementary proportion we want from parent 2
+    target_prop_p2 = 1.0 - prop_from_p1
+    target_len_p2 = int(round(target_prop_p2 * len(p2))) if len(p2) > 0 else 0
+
+    # NEW: randomly decide if we aim for head (first) or tail (second) part of parent 2
+    take_head_p2 = rng.random() < 0.5
+
+    if promoters_p2 and len(p2) > 0:
+        # NEW: pick a promoter cut that best matches the target length on the chosen side
+        best_cut = None
+        best_diff = None
+
+        for c in promoters_p2:
+            if take_head_p2:
+                # length if we take head up to full-gene after promoter c
+                seg_len = min(c + types_nucleotides + 1, len(p2))
+            else:
+                # length if we take tail from promoter c to the end
+                seg_len = len(p2) - c
+
+            diff = abs(seg_len - target_len_p2)
+            if best_diff is None or diff < best_diff:
+                best_diff = diff
+                best_cut = c
+
+        cut_p2 = best_cut if best_cut is not None else promoters_p2[0]
+
+        # apply the chosen side with the selected promoter cutpoint
+        if take_head_p2:
+            subset_p2 = p2[0: min(cut_p2 + types_nucleotides + 1, len(p2))]
+        else:
+            subset_p2 = p2[cut_p2:]
+    else:
+        # if no promoters (or empty), nothing from second parent
+        subset_p2 = []
+
+    new_genotype += subset_p2
+
+    return new_genotype
+
+
 # unequal crossover
 def unequal_crossover(
         rng,
@@ -460,6 +559,9 @@ def unequal_crossover(
         parent1,
         parent2,
 ):
+    parent1 = parent1.genome
+    parent2 = parent2.genome
+
     types_nucleotides = 6
     # the first nucleotide is the concentration
     new_genotype = [(parent1[0] + parent2[0]) / 2]

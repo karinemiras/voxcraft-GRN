@@ -33,12 +33,12 @@ python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --algorithm "$algorithm" \
   --plastic "$plastic"
 
-#
-#papermill "experiments/analysis/analysis.ipynb" \
-#          "experiments/analysis/analysis-executed.ipynb" \
-#          -p study_name  "$study_name " \
-#          -p experiments "$experiments" \
-#          -p runs "$runs" \
-#          -p generations "$generations" \
-#          -p final_gen "$final_gen" \
-#          -p out_path "$out_path"
+
+papermill "experiments/analysis/analysis.ipynb" \
+          "experiments/analysis/analysis-executed.ipynb" \
+          -p study_name  "$study_name" \
+          -p experiments "$experiments" \
+          -p runs "$runs" \
+          -p generations "$generations" \
+          -p final_gen "$final_gen" \
+          -p out_path "$out_path"
