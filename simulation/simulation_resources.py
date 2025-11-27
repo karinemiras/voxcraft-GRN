@@ -259,9 +259,9 @@ def simulate_voxcraft_batch(population, args):
 
         # --- parse behaviors ---
         try:
-            # they call it fitness but here it is a behavior that may or not become the fitness
-            displacement_xy = parse_fitness_from_report(report_file)
-            ind.displacement_xy = displacement_xy
+            # they call it fitness but here, displacement (x) it is a behavior that may or not become the fitness
+            displacement = parse_fitness_from_report(report_file)
+            ind.displacement = displacement
         except Exception as e:
             msg = f"[SIM-REPORT-ERROR] {ind.id}: {e}"
             errors.append(msg)

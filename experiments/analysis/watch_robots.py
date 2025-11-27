@@ -1,213 +1,181 @@
-"""
-Visualize and run a modular robot using Mujoco.
-"""
+import os
+import sys
+import math
+import importlib
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Iterable, List, Tuple, Optional
 
-from pyrr import Quaternion, Vector3
-import argparse
-from revolve2.actor_controller import ActorController
-from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
+from sqlalchemy import create_engine, func
+from sqlalchemy.orm import sessionmaker
 
-from sqlalchemy.ext.asyncio.session import AsyncSession
-from revolve2.core.database import open_async_database_sqlite
-from sqlalchemy.future import select
-from revolve2.core.optimization.ea.generic_ea import DbEAOptimizerGeneration, DbEAOptimizerIndividual, DbEAOptimizer, DbEnvconditions
-from genotype import GenotypeSerializer, develop
-from optimizer import DbOptimizerState
-import sys, time
-from revolve2.core.modular_robot.render.render import Render
-from revolve2.core.modular_robot import Measure
-from revolve2.core.database.serializers import DbFloat
-import pprint
-import numpy as np
-from ast import literal_eval
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(ROOT))
 
-from revolve2.runners.isaacgym import LocalRunner as LocalRunnerI
+from algorithms.EA_classes import Robot, GenerationSurvivor
+from utils.draw import draw_phenotype
+from utils.config import Config
+from simulation.simulation_resources import prepare_robot_files, simulate_voxcraft_batch
 
 
-from body_spider import *
+# ── small DB helpers ──────────────────────────────────────────────────────────
+def open_session(db_path: str):
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"DB not found: {db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+    return sessionmaker(bind=engine, expire_on_commit=False)()
 
 
-class Simulator:
-    _controller: ActorController
-
-    async def simulate(self) -> None:
-
-        parser = argparse.ArgumentParser()
-        parser.add_argument("study")
-        parser.add_argument("experiments")
-        parser.add_argument("tfs")
-        parser.add_argument("watchruns")
-        parser.add_argument("generations")
-        parser.add_argument("mainpath")
-
-        args = parser.parse_args()
-
-        self.study = args.study
-        self.experiments_name = ["reg2m2"] # args.experiments.split(',')
-        self.tfs = ["reg2m2"] #list(args.tfs.split(','))
-        self.runs = [9] # args.watchruns.split(',')
-        self.generations = list(map(int, args.generations.split(',')))
-        test_robots = []
-        mainpath = args.mainpath
-
-        self.bests = 1
-        # 'all' selects best from all individuals
-        # 'gens' selects best from chosen generations
-        self.bests_type = 'gens'
-
-        for ids, experiment_name in enumerate(self.experiments_name):
-
-            for run in self.runs:
-                print('\n run: ', run)
-
-                path = f'{mainpath}/{self.study}'
-
-                fpath = f'{path}/{experiment_name}/run_{run}'
-                print('\n', fpath)
-                db = open_async_database_sqlite(fpath)
-
-                if self.bests_type == 'gens':
-                    for gen in self.generations:
-                        print('  in gen: ', gen)
-                        await self.recover(db, gen, path, test_robots, self.tfs[ids])
-                elif self.bests_type == 'all':
-                    pass
-                    # TODO: implement
-
-    async def recover(self, db, gen, path, test_robots, tfs):
-        async with AsyncSession(db) as session:
-
-            rows = (
-                (await session.execute(select(DbEAOptimizer))).all()
-            )
-            max_modules = rows[0].DbEAOptimizer.max_modules
-            substrate_radius = rows[0].DbEAOptimizer.substrate_radius
-            plastic_body = rows[0].DbEAOptimizer.plastic_body
-            plastic_brain = rows[0].DbEAOptimizer.plastic_brain
-
-            rows = (
-                (await session.execute(select(DbOptimizerState))).all()
-            )
-            sampling_frequency = rows[0].DbOptimizerState.sampling_frequency
-            control_frequency = rows[0].DbOptimizerState.control_frequency
-            simulation_time = rows[0].DbOptimizerState.simulation_time
-
-            rows = ((await session.execute(select(DbEnvconditions))).all())
-            env_conditions = {}
-            for c_row in rows:
-                env_conditions[c_row[0].id] = literal_eval(c_row[0].conditions)
-
-            if self.bests_type == 'all':
-                pass
-
-            elif self.bests_type == 'gens':
-                query = select(DbEAOptimizerGeneration, DbEAOptimizerIndividual, DbFloat) \
-                    .filter((DbEAOptimizerGeneration.individual_id == DbEAOptimizerIndividual.individual_id)
-                            & (DbEAOptimizerGeneration.env_conditions_id == DbEAOptimizerIndividual.env_conditions_id)
-                            & (DbFloat.id == DbEAOptimizerIndividual.float_id)
-                            & DbEAOptimizerGeneration.generation_index.in_([gen])
-                            )
-
-                if len(test_robots) > 0:
-                    query = query.filter(DbEAOptimizerIndividual.individual_id.in_(test_robots))
-
-                # if seasonal setup, criteria is seasonal pareto
-                if len(rows) > 1:
-                    query = query.order_by(
-                                           # CAN ALSO USE SOME OTHER CRITERIA INSTEAD OF SEASONAL
-                                           DbEAOptimizerGeneration.seasonal_dominated.desc(),
-                        
-                                           DbEAOptimizerGeneration.individual_id.asc(),
-                                           DbEAOptimizerGeneration.env_conditions_id.asc())
-                else:
-                    query = query.order_by(DbFloat.disp_y.desc())
-
-                rows = ((await session.execute(query)).all())
-
-                num_lines = self.bests * len(env_conditions)
-                for idx, r in enumerate(rows[0:num_lines]):
-                    env_conditions_id = r.DbEAOptimizerGeneration.env_conditions_id
-                    print(f'\n  rk:{idx+1} ' \
-                              f'  id:{r.DbEAOptimizerIndividual.individual_id} ' \
-                                                    f' birth:{r.DbFloat.birth} ' \
-                             f' gen:{r.DbEAOptimizerGeneration.generation_index} ' \
-                             f' cond:{env_conditions_id} ' \
-                             f' dom:{r.DbEAOptimizerGeneration.seasonal_dominated} ' \
-                             f' speed_y:{r.DbFloat.speed_y} ' \
-                             f' disp_y:{r.DbFloat.disp_y} ' \
-                          )
-
-                    genotype = (
-                        await GenotypeSerializer.from_database(
-                            session, [r.DbEAOptimizerIndividual.genotype_id]
-                        )
-                    )[0]
-
-                    phenotype, queried_substrate = develop(genotype, genotype.mapping_seed, max_modules, tfs,
-                                                           substrate_radius, env_conditions[env_conditions_id],
-                                                            len(env_conditions), plastic_body, plastic_brain,
-                                                            )
-                    render = Render()
-                    img_path = f'{path}/currentinsim.png'
-                    render.render_robot(phenotype.body.core, img_path)
-
-                    actor,  self._controller = phenotype.make_actor_and_controller()
-                    bounding_box = actor.calc_aabb()
-
-                    env = Environment()
-                    x_rotation_degrees = float(env_conditions[env_conditions_id][2])
-                    robot_rotation = x_rotation_degrees * np.pi / 180
-
-                    env.actors.append(
-                        PosedActor(
-                            actor,
-                            Vector3(
-                                [
-                                    0.0,
-                                    0.0,
-                                    (bounding_box.size.z / 2.0 - bounding_box.offset.z),
-                                ]
-                            ),
-                            Quaternion.from_eulers([robot_rotation, 0, 0]),
-                            [0.0 for _ in  self._controller.get_dof_targets()],
-                        )
-                    )
-
-                    batch = Batch(
-                         simulation_time=simulation_time,
-                         sampling_frequency=sampling_frequency,
-                         control_frequency=control_frequency,
-                         control=self._control,
-                     )
-                    batch.environments.append(env)
-
-                    runner = LocalRunnerI(LocalRunnerI.SimParams(),
-                        headless=False,
-                        env_conditions=env_conditions[env_conditions_id],
-                        real_time=False,)
-
-                    states = await runner.run_batch(batch)
-
-                    m = Measure(states=states, genotype_idx=0, phenotype=phenotype,
-                                generation=0, simulation_time=simulation_time)
-                    pprint.pprint(m.measure_all_non_relative())
-                   # print(m.measure_all_non_relative().keys())
-
-    def _control(self, dt: float, control: ActorControl) -> None:
-        self._controller.step(dt)
-        control.set_dof_targets(0, 0, self._controller.get_dof_targets())
+def survivors_exist(session) -> bool:
+    return session.query(func.count(GenerationSurvivor.generation.distinct())).scalar() > 0
 
 
-async def main() -> None:
+def topN_for_generation(session, gen: int, limit: int) -> List[Tuple[Robot, Optional[GenerationSurvivor]]]:
+    q = (
+        session.query(Robot, GenerationSurvivor)
+        .join(GenerationSurvivor, GenerationSurvivor.robot_id == Robot.robot_id)
+        .filter(GenerationSurvivor.generation == gen)
+        .order_by(GenerationSurvivor.fitness.desc().nullslast())
+    )
+    return q.limit(limit).all()
 
-    sim = Simulator()
-    await sim.simulate()
+
+def robots_by_ids(session, ids: Iterable[int]) -> List[Robot]:
+    if not ids:
+        return []
+    return session.query(Robot).filter(Robot.robot_id.in_(list(ids))).all()
+
+
+def latest_survivor(session, robot_id: int) -> Optional[GenerationSurvivor]:
+    return (
+        session.query(GenerationSurvivor)
+        .filter(GenerationSurvivor.robot_id == robot_id)
+        .order_by(GenerationSurvivor.generation.desc())
+        .first()
+    )
+
+
+# ── core pipeline pieces ──────────────────────────────────────────────────────
+def ensure_dir(p: str) -> str:
+    os.makedirs(p, exist_ok=True)
+    return p
+
+
+def build_EA(args):
+    module_name = f"algorithms.{args.algorithm}"
+    EA_cls = getattr(importlib.import_module(module_name), "EA")
+    print(args)
+    return EA_cls(args)
+
+
+def to_float(x) -> float:
+    return float(x) if x is not None else float("nan")
+
+
+def draw_develop_prepare(
+    EA, args, tf_for_exp: str, out_dir: str, rank_idx: int, robot_row: Robot, fitness: float, gen_label: Optional[int],
+) -> SimpleNamespace:
+    phenotype = EA.develop_phenotype(robot_row.genome, tf_for_exp)
+    draw_phenotype(
+        phenotype,
+        robot_row.robot_id,
+        args.cube_face_size,
+        rank_idx,
+        round(fitness, 4) if math.isfinite(fitness) else fitness,
+        out_dir,
+    )
+    ind = SimpleNamespace(
+        robot_id=robot_row.robot_id,
+        genome=robot_row.genome,
+        phenotype=phenotype,
+        generation=gen_label,
+        fitness=fitness,
+        rank=rank_idx,
+        out_dir=out_dir,
+    )
+    prepare_robot_files(ind, args)
+    return ind
+
+
+def simulate_batch_if_any(pop: List[SimpleNamespace], args, label: str):
+    if not pop:
+        return
+    print(f"    simulating {len(pop)} robot(s) [{label}]...")
+    simulate_voxcraft_batch(pop, args)
+    print("    simulation finished.")
+
+
+# ── main orchestration ────────────────────────────────────────────────────────
+def main():
+    args = Config()._get_params()
+
+    experiments = args.experiments.split(",")
+    runs = [int(x) for x in args.runs.split(",")]
+    generations = [int(x) for x in args.generations.split(",")]
+    tfs = args.tfs.split(",")
+
+    max_robots = getattr(args, "max_robots", 50)
+    manual_ids = [1245] # if empty, takes best from gens
+    rid_raw = getattr(args, "robot_ids", "")
+    if isinstance(rid_raw, str) and rid_raw.strip():
+        manual_ids = [int(x) for x in rid_raw.split(",") if x.strip().isdigit()]
+
+    EA = build_EA(args)
+
+    for exp_idx, experiment_name in enumerate(experiments):
+        tf_for_exp = tfs[exp_idx]
+        print(experiment_name)
+
+        for run in runs:
+            print(" run:", run)
+
+            snapshot_root = ensure_dir(f"{args.out_path}/{args.study_name}/analysis/watch/{experiment_name}/run_{run}")
+            db_path = f"{args.out_path}/{args.study_name}/{experiment_name}/run_{run}/run_{run}"
+
+            with open_session(db_path) as session:
+                if not survivors_exist(session):
+                    print("  (no completed generations found in DB)")
+                    continue
+
+                # ── MODE A: manual IDs for this run ────────────────────────
+                if manual_ids:
+                    gen_dir = ensure_dir(f"{snapshot_root}/manual_selection")
+                    robots = robots_by_ids(session, manual_ids)
+                    found_ids = {r.robot_id for r in robots}
+                    missing = [rid for rid in manual_ids if rid not in found_ids]
+                    if missing:
+                        print(f"    warning: IDs not found in this run's DB: {missing}")
+
+                    pop = []
+                    for i, r in enumerate(robots):
+                        surv = latest_survivor(session, r.robot_id)
+                        fitness = to_float(surv.fitness) if surv else float("nan")
+                        gen_label = surv.generation if surv else None
+                        ind = draw_develop_prepare(EA, args, tf_for_exp, gen_dir, i, r, fitness, gen_label)
+                        pop.append(ind)
+                    simulate_batch_if_any(pop, args, "manual")
+                    continue  # skip per-gen mode
+
+                # ── MODE B: top-N per generation ───────────────────────────
+                for gen in generations:
+                    print("  gen:", gen)
+                    gen_dir = ensure_dir(f"{snapshot_root}/gen_{gen}")
+
+                    rows = topN_for_generation(session, gen, max_robots)
+                    if not rows:
+                        print("    (no survivors for this generation)")
+                        continue
+
+                    pop = []
+                    for i, (robot_row, surv_row) in enumerate(rows):
+                        fitness = to_float(surv_row.fitness)
+                        ind = draw_develop_prepare(EA, args, tf_for_exp, gen_dir, i, robot_row, fitness, gen)
+                        pop.append(ind)
+
+                    #simulate_batch_if_any(pop, args, f"gen {gen}")
+
+    print("All done.")
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(main())
-
-
-
+    main()

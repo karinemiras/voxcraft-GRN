@@ -2,12 +2,16 @@ import argparse
 import os
 import sys
 import pandas as pd
+import numpy as np
 from sqlalchemy import create_engine, select
+from pathlib import Path
 
-# make repo root importable 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+# make repo root importable
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(ROOT))
 from algorithms.EA_classes import Robot, GenerationSurvivor 
 from utils.config import Config
+from utils.metrics import METRICS_ABS, METRICS_REL
 
 
 class Analysis:
@@ -19,20 +23,21 @@ class Analysis:
         self.path = f"{args.out_path}/{self.study_name}"
 
         # which columns to summarize
-        self.metrics = ["uniqueness",
-                        "fitness",
-                        "num_voxels"]
+        self.metrics = METRICS_ABS + METRICS_REL
 
     def _resolve_db_path(self, base_path: str):
-        """
-        Accept either:
-          - a direct sqlite file (…/run_X/experiment.sqlite3 or custom name), or
-          - a run directory (…/run_X) containing experiment.sqlite3
-        """
         if os.path.isdir(base_path):
             candidate = os.path.join(base_path, "experiment.sqlite3")
             return candidate if os.path.exists(candidate) else None
         return base_path if os.path.exists(base_path) else None
+
+    def resolve_column(self, name):
+        # Try GenerationSurvivor first, then Robot
+        for model in (GenerationSurvivor, Robot):
+            col = getattr(model, name, None)
+            if col is not None:
+                return col
+        raise KeyError(f"Unknown metric '{name}' on GenerationSurvivor or Robot")
 
     def consolidate(self):
         print("consolidating...")
@@ -47,26 +52,27 @@ class Analysis:
             for run in self.runs:
                 # user provided a directory path earlier; support both cases
                 db_base = os.path.join(self.path, experiment, f"run_{run}", f"run_{run}")
-                print(db_base)
+
                 db_path = self._resolve_db_path(db_base)
                 if db_path is None:
                     print(f"[warn] DB not found, skipping: {db_base}")
                     continue
 
+                base_cols = [
+                    GenerationSurvivor.generation,
+                    GenerationSurvivor.robot_id,
+                ]
+
+                metric_cols = [self.resolve_column(m) for m in self.metrics]
+
                 engine = create_engine(f"sqlite:///{db_path}", future=True)
                 with engine.connect() as conn:
                     # survivors ⨝ robots
                     stmt = (
-                        select(
-                            GenerationSurvivor.generation,
-                            GenerationSurvivor.robot_id,
-                            GenerationSurvivor.fitness,
-                            GenerationSurvivor.uniqueness,
-                            Robot.born_generation,
-                            Robot.num_voxels,
-                        )
+                        select(*base_cols, *metric_cols)
                         .join(Robot, Robot.robot_id == GenerationSurvivor.robot_id)
                     )
+
                     df = pd.read_sql(stmt, conn)
 
                     # full robots table
@@ -93,6 +99,7 @@ class Analysis:
         # === all_df (filtered) =================================================
         all_df = pd.concat(frames, ignore_index=True)
         all_df = all_df[all_df["generation"] <= self.final_gen].reset_index(drop=True)
+        all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
         all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
 
         # === consolidated robots ==============================================
@@ -103,14 +110,17 @@ class Analysis:
             print("[warn] no robots rows found.")
 
         # === inner: within runs per generation (mean & max) ====================
+        agg_dict = {}
+        for m in self.metrics:
+            if m == "fitness":
+                agg_dict["fitness_mean"] = ("fitness", "mean")
+                agg_dict["fitness_max"] = ("fitness", "max")
+            else:
+                agg_dict[f"{m}_mean"] = (m, "mean")
+
         inner = (
             all_df.groupby(["experiment", "run", "generation"], as_index=False)
-            .agg(
-                fitness_mean=("fitness", "mean"),
-                fitness_max=("fitness", "max"),
-                uniqueness_mean=("uniqueness", "mean"),
-                num_voxels_mean=("num_voxels", "mean"),
-            )
+            .agg(**agg_dict)
         )
         inner.to_csv(f"{self.path}/analysis/gens_robots_inner.csv", index=False)
 
@@ -121,14 +131,14 @@ class Analysis:
         for m in self.metrics:
             col = f"{m}_mean"
             agg_spec[f"{col}_median"] = (col, "median")
-            agg_spec[f"{col}_q25"] = (col, lambda x: x.quantile(0.25))
-            agg_spec[f"{col}_q75"] = (col, lambda x: x.quantile(0.75))
+            agg_spec[f"{col}_q25"] = (col, lambda x: x.dropna().quantile(0.25))
+            agg_spec[f"{col}_q75"] = (col, lambda x: x.dropna().quantile(0.75))
 
         # and ONLY FITNESS has MAX
         col = "fitness_max"
         agg_spec[f"{col}_median"] = (col, "median")
-        agg_spec[f"{col}_q25"] = (col, lambda x: x.quantile(0.25))
-        agg_spec[f"{col}_q75"] = (col, lambda x: x.quantile(0.75))
+        agg_spec[f"{col}_q25"] = (col, lambda x: x.dropna().quantile(0.25))
+        agg_spec[f"{col}_q75"] = (col, lambda x: x.dropna().quantile(0.75))
 
         outer = inner.groupby(["experiment", "generation"], as_index=False).agg(**agg_spec)
         outer.to_csv(f"{self.path}/analysis/gens_robots_outer.csv", index=False)

@@ -4,10 +4,18 @@ from sqlalchemy import (
     PrimaryKeyConstraint
 )
 from math import inf
+from pathlib import Path
+import sys
 
 Base = declarative_base()
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
+from utils.metrics import METRICS_ABS, METRICS_REL
+
+
 # DB CLASSES
+
 
 class ExperimentInfo(Base):
     __tablename__ = "experiment_info"
@@ -15,37 +23,42 @@ class ExperimentInfo(Base):
     seed = Column(Integer, nullable=False)
 
 
-class Robot(Base):
-    __tablename__ = "all_robots"
-    # store your own evolutionary ID, not the DB PK
-    robot_id = Column(Integer, primary_key=True)          # matches Individual.id
-    born_generation = Column(Integer, nullable=False)
-    genome = Column(JSON, nullable=False)                 # list or dict; SQLAlchemy will JSON-encode for SQLite
-    genome_size = Column(Float, default=0.0)
-    valid = Column(Float, default=0.0)
-    displacement_xy = Column(Float, default=0.0)
-    num_voxels = Column(Float, default=0.0)
-    bone_count = Column(Float, default=0.0)
-    bone_prop  = Column(Float, default=0.0)
-    fat_count = Column(Float, default=0.0)
-    fat_prop  = Column(Float, default=0.0)
-    muscle_count = Column(Float, default=0.0)
-    muscle_prop  = Column(Float, default=0.0)
-    muscle_offp_count = Column(Float, default=0.0)
-    muscle_offp_prop  = Column(Float, default=0.0)
+def build_robot_class():
+    # Base attributes (non-dynamic)
+    attrs = {
+        "__tablename__": "all_robots",
+        "robot_id": Column(Integer, primary_key=True),
+        "born_generation": Column(Integer, nullable=False),
+        "genome": Column(JSON, nullable=False),
+        "valid": Column(Float, default=0.0),
+    }
+    # Dynamic fields
+    for m in METRICS_ABS:
+        attrs[m] = Column(Float)
+    return type("Robot", (Base,), attrs)
+# Instantiate the Robot class
+Robot = build_robot_class()
 
 
-class GenerationSurvivor(Base):
-    __tablename__ = "generation_survivors"
-    generation = Column(Integer, nullable=False)
-    robot_id = Column(Integer, ForeignKey("all_robots.robot_id"), nullable=False)
+def build_generation_survivor_class():
+    attrs = {
+        "__tablename__": "generation_survivors",
 
-    fitness = Column(Float, default=0.0)
-    uniqueness = Column(Float, default=0.0)
+        # Base attributes (non-dynamic)
+        "generation": Column(Integer, nullable=False),
+        "robot_id": Column(Integer, ForeignKey("all_robots.robot_id"), nullable=False),
 
-    __table_args__ = (
-        PrimaryKeyConstraint("generation", "robot_id", name="pk_generation_robot"),
-    )
+        "__table_args__": (
+            PrimaryKeyConstraint("generation", "robot_id", name="pk_generation_robot"),
+        ),
+    }
+
+    # Dynamic fields
+    for m in METRICS_REL:
+        attrs[m] = Column(Float, default=0.0)
+    return type("GenerationSurvivor", (Base,), attrs)
+# Instantiate the GenerationSurvivor class
+GenerationSurvivor = build_generation_survivor_class()
 
 # EA CLASSES
 
@@ -54,24 +67,17 @@ class Individual:
     def __init__(self, genome, id_counter):
         self.id = id_counter
         self.genome = genome
-        self.genome_size = 0.0
         self.phenotype = None
-        self.valid = 0  # False: assumes it is invalid until proved otherwise
+        self.valid = 0    # invalid until successfully evaluated
 
-        # behavior
-        self.displacement_xy = float('-inf')  # invalid is not evaluated and receives worst value
+        # === Dynamically create absolute metrics ======================
+        for m in METRICS_ABS:
+            # displacement (x) is the only one that previously had -inf default
+            if m == "displacement":
+                setattr(self, m, float('-inf'))
+            else:
+                setattr(self, m, None)
 
-        # absolute morphology
-        self.num_voxels = 0.0
-        self.bone_count = 0.0
-        self.bone_prop = 0.0
-        self.fat_count = 0.0
-        self.fat_prop = 0.0
-        self.muscle_count = 0.0
-        self.muscle_prop = 0.0
-        self.muscle_offp_count = 0.0
-        self.muscle_offp_prop = 0.0
-
-        # relative
-        self.fitness = 0.0
-        self.uniqueness = 0.0
+        # === Dynamically create relative metrics ======================
+        for m in METRICS_REL:
+            setattr(self, m, None)

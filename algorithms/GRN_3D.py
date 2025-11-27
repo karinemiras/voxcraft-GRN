@@ -452,7 +452,7 @@ def initialization(rng, ini_genome_size):
     return genotype
 
 
-# unequal crossover (enhanced)
+# unequal crossover (proportional)
 def unequal_crossover_prop(
         rng,
         promoter_threshold,  # must match the param inside the GRN class
@@ -554,7 +554,7 @@ def unequal_crossover_prop(
 # unequal crossover
 def unequal_crossover(
         rng,
-        promoter_threshold, # make sure it matches th param inside the GRN class
+        promoter_threshold,  # make sure it matches th param inside the GRN class
         max_geno_size,
         parent1,
         parent2,

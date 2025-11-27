@@ -7,31 +7,60 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 from algorithms.voxel_types import VOXEL_TYPES
 
+METRICS_ABS = [
+    # genotypic
+    "genome_size",
+
+    # behavioral
+    "displacement",
+
+    # phenotypic
+    "num_voxels",
+    "bone_count",
+    "bone_prop",
+    "fat_count",
+    "fat_prop",
+    "muscle_count",
+    "muscle_prop",
+    "muscle_offp_count",
+    "muscle_offp_prop",
+]
+
+METRICS_REL = [
+                "uniqueness",
+                "fitness",
+               ]
+
 
 def relative_metrics(population, fitness_metric):
     uniqueness(population)
     set_fitness(population, fitness_metric)
 
 
-def phenotype_abs_metrics(individual):
+def genopheno_abs_metrics(individual):
+
+    # genome
+    genome_size(individual)
+
+    # phenotype
     num_voxels(individual)
     update_material_metrics(individual)
     test_validity(individual)
-    #TOOD: moe to other function
-
-    individual.genome_size = len(individual.genome)
-
 
 
 def behavior_abs_metrics(population):
     # displacement_xy is calculated by voxcraft itself and collected in simulation_resources.py
     # as center-of-mass displacement in meters: x^2 + y^2
 
-    # TODO: implement others
+    # TODO: implement others and treat for -inf
     pass
 
 
-def num_voxels(individual):               # size / mass proxy
+def genome_size(individual):
+    individual.genome_size = len(individual.genome)
+
+
+def num_voxels(individual):  # size / mass proxy
     individual.num_voxels = int((individual.phenotype != 0).sum())
 
 
@@ -51,7 +80,7 @@ def update_material_metrics(individual):
 
 def set_fitness(population, fitness_metric):
     for ind in population:
-       ind.fitness = float(getattr(ind, fitness_metric, 0.0))
+       ind.fitness = float(getattr(ind, fitness_metric, None))
 
 
 def test_validity(individual):

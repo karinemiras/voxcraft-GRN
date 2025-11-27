@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 from algorithms.EA_classes import Base, Robot, GenerationSurvivor, Individual, ExperimentInfo
+from utils.metrics import METRICS_ABS, METRICS_REL
 
 
 # Enable FK enforcement in SQLite (otherwise FK errors won't trip the transaction)
@@ -65,19 +66,15 @@ class Experiment:
 
     def _individual_from_robot(self, r: Robot) -> Individual:
         ind = Individual(genome=r.genome, id_counter=r.robot_id)
+        ind.valid = r.valid
 
-        ind.genome_size = float(r.genome_size) if r.genome_size is not None else 0.0
-        ind.valid = float(r.valid) if r.valid is not None else 0.0
-        ind.displacement_xy = float(r.displacement_xy) if r.displacement_xy is not None else 0.0
-        ind.num_voxels = float(r.num_voxels) if r.num_voxels is not None else 0.0
-        ind.bone_count = float(r.bone_count or 0.0)
-        ind.bone_prop = float(r.bone_prop or 0.0)
-        ind.fat_count = float(r.fat_count or 0.0)
-        ind.fat_prop = float(r.fat_prop or 0.0)
-        ind.muscle_count = float(r.muscle_count or 0.0)
-        ind.muscle_prop = float(r.muscle_prop or 0.0)
-        ind.muscle_offp_count = float(r.muscle_offp_count or 0.0)
-        ind.muscle_offp_prop = float(r.muscle_offp_prop or 0.0)
+        # copy absolute metrics exactly as stored
+        for m in METRICS_ABS:
+            setattr(ind, m, getattr(r, m, None))
+
+        # copy relative metrics exactly as stored
+        for m in METRICS_REL:
+            setattr(ind, m, getattr(r, m, None))
 
         return ind
 
@@ -110,10 +107,12 @@ class Experiment:
             population = []
             for r, gs in rows:
                 ind = self._individual_from_robot(r)
-                # Hook into subclass to rebuild phenotype
+                # rebuild phenotype
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
-                ind.fitness = float(gs.fitness or 0.0)
-                ind.uniqueness = float(gs.uniqueness or 0.0)
+
+                # --- pass-through for relative metrics ---
+                for m in METRICS_REL:
+                    setattr(ind, m, getattr(gs, m, None))
                 population.append(ind)
 
             # Set next ID
@@ -139,37 +138,25 @@ class Experiment:
     def _stage_robot(self, s, individual, born_generation):
         row = s.get(Robot, individual.id)
         if row is None:
-            s.add(
-                Robot(
-                    robot_id=individual.id,
-                    born_generation=int(born_generation),
-                    genome=individual.genome,
-                    genome_size = float(individual.genome_size) if individual.genome_size is not None else 0.0,
-                    valid=float(individual.valid) if individual.valid is not None else 0.0,
-                    displacement_xy=float(individual.displacement_xy) if individual.displacement_xy is not None else 0.0,
-                    num_voxels=float(individual.num_voxels) if individual.num_voxels is not None else 0.0,
-                    bone_count=float(individual.bone_count) if individual.bone_count is not None else 0.0,
-                    bone_prop=float(individual.bone_prop) if individual.bone_prop is not None else 0.0,
-                    fat_count=float(individual.fat_count) if individual.fat_count is not None else 0.0,
-                    fat_prop=float(individual.fat_prop) if individual.fat_prop is not None else 0.0,
-                    muscle_count=float(individual.muscle_count) if individual.muscle_count is not None else 0.0,
-                    muscle_prop=float(individual.muscle_prop) if individual.muscle_prop is not None else 0.0,
-                    muscle_offp_count=float(individual.muscle_offp_count) if individual.muscle_offp_count is not None else 0.0,
-                    muscle_offp_prop=float(individual.muscle_offp_prop) if individual.muscle_offp_prop is not None else 0.0,
-                )
-            )
-        # else:
-        #     row.num_voxels = (
-        #         float(individual.num_voxels) if individual.num_voxels is not None else row.num_voxels
-        #     )
+            data = {
+                "robot_id": individual.id,
+                "born_generation": int(born_generation),
+                "genome": individual.genome,
+                "valid": individual.valid,
+            }
+            # absolute metrics
+            for m in METRICS_ABS:
+                data[m] = getattr(individual, m, None)
+            s.add(Robot(**data))
 
     def _stage_generation_survivors(self, s, generation, survivors):
         for ind in survivors:
-            s.merge(
-                GenerationSurvivor(
-                    generation=int(generation),
-                    robot_id=int(ind.id),
-                    fitness=float(ind.fitness or 0.0),
-                    uniqueness=float(ind.uniqueness or 0.0),
-                )
-            )
+            data = {
+                "generation": int(generation),
+                "robot_id": int(ind.id),
+            }
+            # relative metrics
+            for m in METRICS_REL:
+                data[m] = getattr(ind, m, None)
+            s.merge(GenerationSurvivor(**data))
+

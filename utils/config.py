@@ -31,6 +31,14 @@ class Config():
         )
 
         parser.add_argument(
+            "--experiment_name",
+            required=False,
+            default="defaultexperiment",
+            type=str,
+            help="Name of the experiment.",
+        )
+
+        parser.add_argument(
             "--algorithm",
             required=False,
             default="basic_EA",
@@ -41,21 +49,21 @@ class Config():
         parser.add_argument(
             "--population_size",
             required=False,
-            default=100,
+            default=4,
             type=int,
         )
 
         parser.add_argument(
             "--offspring_size",
             required=False,
-            default=100,
+            default=4,
             type=int,
         )
 
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=100,
+            default=3,
             type=int,
         )
 
@@ -76,7 +84,7 @@ class Config():
         parser.add_argument(
             "--max_voxels",
             required=False,
-            default=30,
+            default=15,
             type=int,
             help="",
         )
@@ -92,7 +100,7 @@ class Config():
         parser.add_argument(
             "--cube_face_size",
             required=False,
-            default=4,
+            default=3,
             type=int,
             help="",
         )
@@ -130,7 +138,7 @@ class Config():
         parser.add_argument(
             "--fitness_metric",
             required=False,
-            default="uniqueness",
+            default="displacement",
             type=str,
         )
 
@@ -148,14 +156,6 @@ class Config():
             default="",
             type=str,
             help="last generation to be analyzed"
-        )
-
-        parser.add_argument(
-            "--experiment_name",
-            required=False,
-            default="defaultexperiment",
-            type=str,
-            help="Name of the experiment.",
         )
 
         parser.add_argument(
@@ -185,7 +185,7 @@ class Config():
         parser.add_argument(
             "--run_simulation",
             required=False,
-            default=0, #1
+            default=1,
             type=int,
             help="If 0, runs optimizer without simulating robots, so behavioral measures are none."
         )

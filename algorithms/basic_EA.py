@@ -11,7 +11,7 @@ from algorithms.experiment import Experiment
 from algorithms.EA_classes import Individual
 from algorithms.GRN_3D import GRN, initialization, mutation_type1, unequal_crossover_prop
 from simulation.simulation_resources import *
-from utils.metrics import phenotype_abs_metrics, behavior_abs_metrics, relative_metrics
+from utils.metrics import genopheno_abs_metrics, behavior_abs_metrics, relative_metrics
 from utils.config import Config
 
 
@@ -110,7 +110,7 @@ class EA(Experiment):
 
             for ind in population:
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
-                phenotype_abs_metrics(ind)
+                genopheno_abs_metrics(ind)
 
                 if self.args.run_simulation:
                     prepare_robot_files(ind, self.args)
@@ -149,7 +149,7 @@ class EA(Experiment):
                 offspring.append(child)
 
                 child.phenotype = self.develop_phenotype(child.genome, self.tfs)
-                phenotype_abs_metrics(child)
+                genopheno_abs_metrics(child)
                 
                 if self.args.run_simulation:
                     prepare_robot_files(child, self.args)
