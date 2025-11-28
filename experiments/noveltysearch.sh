@@ -47,16 +47,9 @@ population_size="100"
 
 offspring_size="100"
 
-# bash loop frequency: adjust seconds according to exp size, e.g, 300.
-# (low values for short experiments will try to spawn and log too often)
-delay_setup_script=30
-
-# ?
-num_terminals=2
-
 # gens for box-plots, snapshots, videos (by default the last gen)
-#generations="0,$num_generations"
-generations="$num_generations"
+#generations="1,$num_generations"
+generations="1,25,$num_generations"
 
 # max gen to filter line-plots  (by default the last gen)
 final_gen="$num_generations"
@@ -67,10 +60,10 @@ crossover_prob=1
 
 max_voxels=30
 
-run_simulation=0
-
-cube_face_size=3
+cube_face_size=4
 
 simulation_time=0
+
+run_simulation=0
 
 ### PARAMS END ###

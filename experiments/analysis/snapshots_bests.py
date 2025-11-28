@@ -21,6 +21,8 @@ def main():
     experiments = args.experiments.split(",")
     runs = list(map(int, args.runs.split(",")))
     generations = list(map(int, args.generations.split(",")))
+    # generations = list(range(1, args.num_generations + 1))
+    generations = list(range(1, 85 + 1))
     tfs = args.tfs.split(",")
 
     # instantiates the algorithm class with original params to develop the phenotypes
@@ -30,7 +32,7 @@ def main():
     cls = getattr(module, class_name)
     EA = cls(args)
 
-    numberrobots = 50  # top-N per generation
+    numberrobots = 2  # top-N per generation
 
     for exp_idx, experiment_name in enumerate(experiments):
         print(experiment_name)

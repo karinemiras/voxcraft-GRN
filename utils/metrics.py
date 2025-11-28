@@ -103,10 +103,7 @@ def tree_edit_distance(g1, g2):
 
 
 def uniqueness(population, k=10):
-    """
-    Assigns fitness to each individual based on local 'novelty' = uniqueness,
-    using average distance to k nearest neighbors.
-    """
+    # average distance to k nearest neighbors using edit tree distance
     for i, ind in enumerate(population):
         distances = []
         for j, other in enumerate(population):

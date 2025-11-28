@@ -4,7 +4,6 @@
 ### PARAMS INI ###
 
 # this should be the path for the output files (choose YOUR OWN dir!)
-
 out_path="/working_data"
 # /home/ripper8/projects/working_data
 
@@ -18,7 +17,7 @@ docker_path="/workspace"
 # exps names should not be fully contained in each other
 
 study_name="vox"
-experiments="crossprop"
+experiments="crosspropxyv4s25"
 
 # one tf definition per experiment
 tfs="reg2"
@@ -28,7 +27,7 @@ env_conditions="none"
 
 ####
 
-nruns=2
+nruns=3
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -51,16 +50,9 @@ population_size="50"
 
 offspring_size="50"
 
-# bash loop frequency: adjust seconds according to exp size, e.g, 300.
-# (low values for short experiments will try to spawn and log too often)
-delay_setup_script=30
-
-# ?
-num_terminals=2
-
 # gens for box-plots, snapshots, videos (by default the last gen)
-#generations="0,$num_generations"
-generations="$num_generations"
+#generations="1,$num_generations"
+generations="1,$num_generations"
 
 # max gen to filter line-plots  (by default the last gen)
 final_gen="$num_generations"
@@ -69,10 +61,12 @@ mutation_prob=0.9
 
 crossover_prob=1
 
+max_voxels=25
+
+cube_face_size=4
+
 simulation_time=2
 
-max_voxels=15
-
-cube_face_size=3
+run_simulation=1
 
 ### PARAMS END ###
