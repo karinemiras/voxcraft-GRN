@@ -65,7 +65,8 @@ class Experiment:
     # ---------- Recovery ----------
 
     def _individual_from_robot(self, r: Robot) -> Individual:
-        ind = Individual(genome=r.genome, id_counter=r.robot_id)
+        ind = Individual(genome=r.genome, id_counter=r.robot_id,
+                         parent1_id=r.parent1_id, parent2_id=r.parent2_id)
         ind.valid = r.valid
 
         # copy absolute metrics exactly as stored
@@ -143,6 +144,8 @@ class Experiment:
                 "born_generation": int(born_generation),
                 "genome": individual.genome,
                 "valid": individual.valid,
+                "parent1_id": individual.parent1_id,
+                "parent2_id": individual.parent2_id,
             }
             # absolute metrics
             for m in METRICS_ABS:

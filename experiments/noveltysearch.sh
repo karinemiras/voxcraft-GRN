@@ -13,8 +13,8 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="GRN"
-experiments="novelty"
+study_name="voxlocnov"
+experiments="crosspropxyv4s25"
 
 # one tf definition per experiment
 tfs="reg2"
@@ -37,19 +37,19 @@ watchruns=$runs
 
 algorithm="basic_EA"
 
-fitness_metric="uniqueness"
+fitness_metric="local_novelty"
 
 plastic=0
 
-num_generations="100"
+num_generations="25"
 
-population_size="100"
+population_size="50"
 
-offspring_size="100"
+offspring_size="50"
 
 # gens for box-plots, snapshots, videos (by default the last gen)
 #generations="1,$num_generations"
-generations="1,25,$num_generations"
+generations="1,$num_generations"
 
 # max gen to filter line-plots  (by default the last gen)
 final_gen="$num_generations"
@@ -58,7 +58,7 @@ mutation_prob=0.9
 
 crossover_prob=1
 
-max_voxels=30
+max_voxels=25
 
 cube_face_size=4
 

@@ -29,12 +29,14 @@ METRICS_ABS = [
 METRICS_REL = [
                 "uniqueness",
                 "fitness",
+                "local_novelty",
                ]
 
 
-def relative_metrics(population, fitness_metric):
+def relative_metrics(population, args):
     uniqueness(population)
-    set_fitness(population, fitness_metric)
+    local_novelty(population)
+    set_fitness(population, args.fitness_metric)
 
 
 def genopheno_abs_metrics(individual):
@@ -80,7 +82,7 @@ def update_material_metrics(individual):
 
 def set_fitness(population, fitness_metric):
     for ind in population:
-       ind.fitness = float(getattr(ind, fitness_metric, None))
+        ind.fitness = float(getattr(ind, fitness_metric, None))
 
 
 def test_validity(individual):
@@ -102,16 +104,27 @@ def tree_edit_distance(g1, g2):
     return float(one_zero.sum() + 0.5 * both_nonzero_diff.sum())
 
 
-def uniqueness(population, k=10):
-    # average distance to k nearest neighbors using edit tree distance
+def uniqueness(population):
+    # average distance to all pop using edit tree distance
     for i, ind in enumerate(population):
         distances = []
         for j, other in enumerate(population):
             if i != j:
                 d = tree_edit_distance(ind.phenotype, other.phenotype)
                 distances.append(d)
-        nearest_distances = sorted(distances)[:k]
-        ind.uniqueness = np.mean(nearest_distances)
+        ind.uniqueness = np.mean(distances)
 
+
+def local_novelty(population):
+    k = 5
+    # average distance to k nearest neighbors using edit tree distance
+    for i, ind in enumerate(population):
+        distances = []
+        for j, other in enumerate(population):
+            if i != j:
+                d = tree_edit_distance(ind.phenotype, other.phenotype)
+                distances.append(d / max(ind.num_voxels, other.num_voxels))
+        nearest_distances = sorted(distances)[:k]
+        ind.local_novelty = np.mean(nearest_distances)
 
 

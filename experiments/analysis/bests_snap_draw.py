@@ -19,8 +19,6 @@ def main():
     experiments_name = args.experiments.split(',')
     runs = list(map(int, args.runs.split(',')))
     generations = list(map(int, args.generations.split(',')))
-    # generations = list(range(1, args.num_generations + 1))
-    generations = list(range(1, 85 + 1))
     out_path = args.out_path
 
     bests = 1

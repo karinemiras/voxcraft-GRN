@@ -10,7 +10,8 @@ sys.path.append(str(ROOT))
 from algorithms.experiment import Experiment
 from algorithms.EA_classes import Individual
 from algorithms.GRN_3D import GRN, initialization, mutation_type1, unequal_crossover_prop
-from simulation.simulation_resources import *
+from simulation.simulation_resources import simulate_voxcraft_batch
+from simulation.prepare_robot_files import prepare_robot_files
 from utils.metrics import genopheno_abs_metrics, behavior_abs_metrics, relative_metrics
 from utils.config import Config
 
@@ -67,7 +68,8 @@ class EA(Experiment):
         individuals = []
         for _ in range(size):
             self.id_counter += 1
-            individuals.append(Individual(initialization(self.rng, self.INI_GENOME_SIZE), self.id_counter))
+            individuals.append(Individual(initialization(self.rng, self.INI_GENOME_SIZE), self.id_counter,
+                                                         parent1_id=None, parent2_id=None))
         return individuals
 
     def mutate(self, individual):
@@ -88,11 +90,10 @@ class EA(Experiment):
             child_genome = list(chosen.genome)
 
         self.id_counter += 1
-        child = Individual(child_genome, self.id_counter)
+        child = Individual(child_genome, self.id_counter, parent1_id=parent1.id, parent2_id=parent2.id)
         return child
 
     def tournament_selection(self, population, k):
-        # tie-breaks handled by max() on fitness
         return max(self.rng.sample(population, k), key=lambda ind: ind.fitness)
 
     # ---------- Main run ----------
@@ -121,7 +122,7 @@ class EA(Experiment):
                 for ind in population:
                     behavior_abs_metrics(ind)
 
-            relative_metrics(population, self.fitness_metric)
+            relative_metrics(population, self.args)
 
             # persist parents as both robots and survivors for gen 1
             self._persist_generation_atomic(generation, population, population)
@@ -142,7 +143,12 @@ class EA(Experiment):
             offspring = []
             for _ in range(self.offspring_size):
                 parent1 = self.tournament_selection(population, self.tournament_k)
-                parent2 = self.tournament_selection(population, self.tournament_k)
+                co_attempts = 0
+                while True and co_attempts < 10: # parents should be distinct individuals
+                    parent2 = self.tournament_selection(population, self.tournament_k)
+                    if parent2.id != parent1.id:
+                        break
+                    co_attempts += 1
 
                 child = self.crossover(parent1, parent2)
                 self.mutate(child)
@@ -162,7 +168,7 @@ class EA(Experiment):
 
             # Combine parents and offspring into a pool
             pool = population + offspring
-            relative_metrics(pool, self.fitness_metric)
+            relative_metrics(pool, self.args)
 
             # Select next generation (unique winners)
             new_population = []
@@ -175,7 +181,7 @@ class EA(Experiment):
                 pool.remove(winner)  # ensures uniqueness
 
             population = new_population
-            relative_metrics(population, self.fitness_metric)
+            relative_metrics(population, self.args)
 
             # Persist this generation atomically
             self._persist_generation_atomic(generation, offspring, population)

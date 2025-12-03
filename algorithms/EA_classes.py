@@ -31,6 +31,9 @@ def build_robot_class():
         "born_generation": Column(Integer, nullable=False),
         "genome": Column(JSON, nullable=False),
         "valid": Column(Float, default=0.0),
+
+        "parent1_id": Column(Integer, ForeignKey("all_robots.robot_id"), nullable=True),
+        "parent2_id": Column(Integer, ForeignKey("all_robots.robot_id"), nullable=True),
     }
     # Dynamic fields
     for m in METRICS_ABS:
@@ -64,9 +67,11 @@ GenerationSurvivor = build_generation_survivor_class()
 
 
 class Individual:
-    def __init__(self, genome, id_counter):
+    def __init__(self, genome, id_counter, parent1_id=None, parent2_id=None):
         self.id = id_counter
         self.genome = genome
+        self.parent1_id = parent1_id
+        self.parent2_id = parent2_id
         self.phenotype = None
         self.valid = 0    # invalid until successfully evaluated
 
