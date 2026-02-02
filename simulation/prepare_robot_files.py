@@ -81,9 +81,9 @@ def prepare_robot_files(individual, args):
 
     mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['bone'], E=1e8, RHO=1e4)  # stiff, passive
     mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['fat'], E=7e5, RHO=1.2e4)  # soft, passive, heavier
-    mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['muscle'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase)  # medium-soft, active
-    mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['muscle_offp'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase)  # medium-soft, active
-    
+    mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['phase_muscle'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase)  # medium-soft, active
+    mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['offphase_muscle'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase)  # medium-soft, active
+
     # Write out the vxa (robot) to data/ directory
     vxa.write(f"{out_path}/base.vxa")
 

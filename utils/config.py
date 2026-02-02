@@ -63,7 +63,7 @@ class Config():
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=3,
+            default=5,
             type=int,
         )
 
@@ -193,4 +193,3 @@ class Config():
         args = parser.parse_args()
 
         return args
-

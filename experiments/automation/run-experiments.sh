@@ -21,14 +21,29 @@ mkdir -p "${out_path}/${study_name}" "${out_path}/${study_name}/analysis" "$reco
 # ---------- helpers ----------
 timestamp() { date +"%Y-%m-%d_%H-%M-%S"; }
 
+#count_running_sessions() {
+#  tmux ls 2>/dev/null | grep -E "^${study_name}_" | wc -l | tr -d ' '
+#}
+
 count_running_sessions() {
-  tmux ls 2>/dev/null | grep -E "^${study_name}_" | wc -l | tr -d ' '
+  local n
+  n=$(tmux ls 2>/dev/null | awk -F: -v p="^${study_name}_" '$1 ~ p {c++} END {print c+0}')
+  printf '%s\n' "${n:-0}"
 }
 
+#kill_all_sessions() {
+#  tmux ls 2>/dev/null | awk -F: '{print $1}' | grep -E "^${study_name}_" | while read -r s; do
+#    tmux kill-session -t "$s" 2>/dev/null || true
+#  done
+#}
+
 kill_all_sessions() {
-  tmux ls 2>/dev/null | awk -F: '{print $1}' | grep -E "^${study_name}_" | while read -r s; do
-    tmux kill-session -t "$s" 2>/dev/null || true
-  done
+  tmux ls 2>/dev/null \
+    | awk -F: -v p="^${study_name}_" '$1 ~ p {print $1}' \
+    | while read -r s; do
+        tmux kill-session -t "$s" 2>/dev/null || true
+      done \
+    || true
 }
 
 # CUDA: driver present?
@@ -170,10 +185,6 @@ for idx in "${!EXP_LIST[@]}"; do
       "mkdir -p '${out_path}/${study_name}'; exec ${cmd[*]} >>'$logfile' 2>&1"
   done
 done
-
-echo ""
-echo ">> Launched with concurrency = ${MAX_PARALLEL}"
-echo ">> Attach: tmux attach -t ${study_name}_<exp>_r<run>"
 
 # ---------- wait & analyze ----------
 if [[ "${WAIT_FOR_ALL}" -eq 1 ]]; then

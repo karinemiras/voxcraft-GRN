@@ -1,8 +1,8 @@
-
 #!/usr/bin/env python3
 import os
 import sys
 import time
+import re
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -15,7 +15,6 @@ sys.path.append(str(ROOT))
 # Error classification helpers
 # ============================
 
-# Per-robot issues to SKIP (continue the run)
 RECOVERABLE_SUBSTR = (
     "too many resources requested",
     "out of memory",
@@ -23,25 +22,22 @@ RECOVERABLE_SUBSTR = (
     "illegal address",
     "invalid configuration",
     "worker failed to finish",
-    ".vxr",                        # missing worker output file
-    "cudaerrormemoryallocation",   # sometimes appears tokenized
+    ".vxr",
+    "cudaerrormemoryallocation",
 )
 
-# True GPU/driver/runtime death (ABORT run, write sentinel)
 FATAL_SUBSTR = (
     "no cuda-capable device is detected",
     "error: no gpu found",
     "device lost",
     "driver shutting down",
     "device has fallen off the bus",
-    "xid",                         # NVIDIA driver Xid errors
+    "xid",
     "cuinit(0) failed",
-    # keep this last & be cautious; rely on your logs context if needed
     "unspecified launch failure",
 )
 
 def classify_text(s: str) -> str:
-    """Return 'fatal', 'recoverable', or 'ok' based on log text."""
     s = (s or "").lower()
     if any(x in s for x in FATAL_SUBSTR):
         return "fatal"
@@ -50,122 +46,75 @@ def classify_text(s: str) -> str:
     return "ok"
 
 def write_fatal_flag_atomic(path: Path, msg: str) -> None:
-    """Atomically write the FATAL sentinel so bash never sees a half-written file."""
     tmp = str(path) + ".tmp"
     Path(tmp).write_text(msg + "\n", encoding="utf-8")
     os.replace(tmp, path)
 
 # ============================
-# NVML (admission) helpers
+# Report helpers (FORGIVING)
 # ============================
 
-_NVML_READY = False
-def _nvml_init_once():
-    global _NVML_READY
-    if _NVML_READY:
-        return True
-    try:
-        import pynvml  # type: ignore
-        pynvml.nvmlInit()
-        _NVML_READY = True
-    except Exception:
-        _NVML_READY = False
-    return _NVML_READY
+def find_report(expected_report_file: Path) -> Optional[Path]:
+    """
+    Super forgiving:
+      - If expected exists, use it
+      - Else any *.xml in the folder
+      - Else any file containing 'report' in its name
+    """
+    if expected_report_file.exists():
+        return expected_report_file
 
-def get_free_vram_bytes(gpu_index: int = 0) -> Optional[int]:
-    """
-    Return free VRAM bytes via NVML, or None if NVML unavailable.
-    """
-    if not _nvml_init_once():
-        return None
-    try:
-        import pynvml  # type: ignore
-        h = pynvml.nvmlDeviceGetHandleByIndex(gpu_index)
-        info = pynvml.nvmlDeviceGetMemoryInfo(h)
-        return int(info.free)
-    except Exception:
-        return None
+    parent = expected_report_file.parent
+    xmls = list(parent.glob("*.xml"))
+    if xmls:
+        return xmls[0]
 
-def admit_or_defer(min_free_bytes: int, trials: int, sleep_sec: float) -> bool:
-    """
-    Admission loop: return True if free VRAM >= threshold within N trials,
-    else False (defer).
-    If NVML is absent, always return True (don't block).
-    """
-    free0 = get_free_vram_bytes()
-    if free0 is None:
-        return True  # can't check; don't block launches
-    for _ in range(trials):
-        free_now = get_free_vram_bytes()
-        if free_now is None or free_now >= min_free_bytes:
-            return True
-        time.sleep(sleep_sec)
-    return False
-
-# ============================
-# Report helpers
-# ============================
-
-from glob import glob
-
-def find_report(report_file: Path) -> Optional[Path]:
-    """
-    Return the expected report_file if it exists; else any *.xml in the same folder;
-    else None.
-    """
-    if report_file.exists():
-        return report_file
-    cands = list(report_file.parent.glob("*.xml"))
-    return cands[0] if cands else None
+    reportish = [p for p in parent.iterdir() if p.is_file() and "report" in p.name.lower()]
+    return reportish[0] if reportish else None
 
 def parse_fitness_from_report(report_file: Path) -> float:
     """
-    String-parse the first <fitness_score>...</fitness_score> from the xml-like file.
+    Very forgiving extraction:
+      1) Try a few common fitness tag variants (case-insensitive)
+      2) Fallback: first float-like number anywhere in the file
+    Only fails if it can't find ANY number at all.
     """
-    if not report_file.exists():
-        raise FileNotFoundError(f"Report file not found: {report_file}")
     text = report_file.read_text(encoding="utf-8", errors="ignore")
-    start_tag = "<fitness_score>"
-    end_tag = "</fitness_score>"
-    i = text.find(start_tag)
-    if i == -1:
-        raise ValueError(f"No {start_tag} in {report_file}")
-    i += len(start_tag)
-    j = text.find(end_tag, i)
-    if j == -1:
-        raise ValueError(f"No {end_tag} in {report_file}")
-    return float(text[i:j].strip())
+    if not text.strip():
+        raise ValueError("empty report")
 
-def explain_classification(ind_id, rc, timed_out, status_hist, status_err, report_exists, parse_ok):
-    if timed_out:
-        return "timeout"
-    if status_err == "fatal" or status_hist == "fatal":
-        return "fatal token in stderr/history"
-    if status_err == "recoverable":
-        return "recoverable token in stderr"
-    if status_hist == "recoverable":
-        return "recoverable token in history"
-    if not report_exists:
-        return "missing report"
-    if not parse_ok:
-        return "report parse failed"
-    if rc != 0:
-        return f"non-zero return code {rc}"
-    return "unknown"
+    num = r"([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
+    patterns = [
+        rf"<\s*fitness_score\s*>\s*{num}\s*<\s*/\s*fitness_score\s*>",
+        rf"<\s*fitness[_-]score\s*>\s*{num}\s*<\s*/\s*fitness[_-]score\s*>",
+        rf"<\s*fitness\s*>\s*{num}\s*<\s*/\s*fitness\s*>",
+        rf"<\s*fitnessScore\s*>\s*{num}\s*<\s*/\s*fitnessScore\s*>",
+        rf"<\s*score\s*>\s*{num}\s*<\s*/\s*score\s*>",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, flags=re.IGNORECASE)
+        if m:
+            return float(m.group(1))
+
+    # Nuclear option: first number anywhere
+    m = re.search(num, text)
+    if m:
+        return float(m.group(1))
+
+    raise ValueError("no numeric value found in report")
 
 # ============================
-# VoxCraft batch runner
+# VoxCraft batch runner (SIMPLE)
 # ============================
 
 def simulate_voxcraft_batch(population, args):
     """
-    Run voxcraft-sim with admission control + retries.
-
-    Policy:
-      * If report parses -> ACCEPT (even if rc!=0 or 'recoverable' noise).
-      * Else if rc==0 and no error tokens -> ACCEPT (warn).
-      * Recoverables (OOM/resources/worker/timeout/rc!=0 w/out report) -> skip / retry.
-      * Fatal tokens (device lost / no GPU / runtime dead) -> write FATAL + exit(2).
+    Simple, conservative runner:
+      - Serial only (no parallelism)
+      - No NVML/admission control
+      - Multiple retries per robot
+      - Success = report exists AND we can extract a numeric fitness
+      - Fatal GPU/runtime errors abort the whole run with a FATAL sentinel
     """
     sim_bin = Path(args.docker_path) / "voxcraft-sim" / "build" / "voxcraft-sim"
     worker_bin = Path(args.docker_path) / "voxcraft-sim" / "build" / "vx3_node_worker"
@@ -175,21 +124,11 @@ def simulate_voxcraft_batch(population, args):
     if not worker_bin.exists():
         raise FileNotFoundError(f"Worker binary not found at {worker_bin}")
 
-    # ===== Tunables =====
-    MAX_PARALLEL_FIRST   = 2      # first pass local concurrency
-    MAX_PARALLEL_RETRY   = 1      # retry passes run serially by default
-    SIM_TIMEOUT          = 180    # per-robot seconds (more forgiving)
-
-    # Admission threshold & trials
-    ADMIT_MIN_FREE_GB    = 3.0    # require at least this much free VRAM to start a robot
-    ADMIT_TRIALS         = 5      # N tries per robot before deferring
-    ADMIT_SLEEP_SEC      = 2.0    # wait between trials
-
-    # Retry policy
-    RETRY_ROUNDS         = 2      # how many retry passes after the first
-    RETRY_RECOVERABLES   = True   # push recoverables into retry queue
-
-    min_free_bytes = int(ADMIT_MIN_FREE_GB * (1024**3))
+    # ---- Tunables (favor success + correctness) ----
+    SIM_TIMEOUT_SEC     = 60        # give robots slack
+    MAX_ATTEMPTS        = 2          # retry a bunch
+    BACKOFF_BASE_SEC    = 5.0        # attempt 1-> sleep 2s, attempt2->4s, etc.
+    CLEAN_BEFORE_RETRY  = True       # delete stale outputs before retrying
 
     out_path_hist = (
         Path(args.out_path)
@@ -210,92 +149,94 @@ def simulate_voxcraft_batch(population, args):
             / f"robot{ind.id}"
         )
 
-    def _run_pass(individuals, max_parallel, round_name):
+    def cleanup_outputs(ind_id: int, history_file: Path, expected_report_file: Path) -> None:
+        # Remove per-robot history
+        try:
+            if history_file.exists():
+                history_file.unlink()
+        except Exception:
+            pass
+
+        # Remove expected report file
+        try:
+            if expected_report_file.exists():
+                expected_report_file.unlink()
+        except Exception:
+            pass
+
+        # Remove any other xml that looks like it belongs to this robot
+        try:
+            for p in expected_report_file.parent.glob("*.xml"):
+                if p.name.startswith(f"{ind_id}_") or p.name == expected_report_file.name:
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def run_one(ind) -> bool:
         """
-        Launch + wait pass with admission. Returns a list of individuals that should
-        be retried (deferred or recoverable).
+        Returns True if success (fitness extracted), else False after retries.
+        May sys.exit(2) on fatal GPU/driver/runtime death.
         """
-        procs = []          # (ind, Popen, fh, hist_path, report_path, launch_note)
-        retry_queue = []    # to be processed in later rounds
-        errors = []
+        if not getattr(ind, "valid", True):
+            return True
 
-        # ---- Launch phase ----
-        for ind in individuals:
-            if not getattr(ind, "valid", True):
-                continue
+        robot_dir = robot_dir_for(ind)
+        if not robot_dir.exists():
+            print(f"[SIM-SKIP] {ind.id}: robot dir missing: {robot_dir}")
+            return True
 
-            robot_dir = robot_dir_for(ind)
-            if not robot_dir.exists():
-                print(f"[{round_name}][SIM-SKIP] {ind.id}: robot dir missing: {robot_dir}")
-                continue
+        base_vxa = robot_dir / "base.vxa"
+        vxd_file = robot_dir / f"{ind.id}.vxd"
+        if not base_vxa.exists():
+            print(f"[SIM-SKIP] {ind.id}: base.vxa missing")
+            return True
+        if not vxd_file.exists():
+            print(f"[SIM-SKIP] {ind.id}: VXD missing")
+            return True
 
-            base_vxa = robot_dir / "base.vxa"
-            vxd_file = robot_dir / f"{ind.id}.vxd"
-            if not base_vxa.exists():
-                print(f"[{round_name}][SIM-SKIP] {ind.id}: base_vxa missing")
-                continue
-            if not vxd_file.exists():
-                print(f"[{round_name}][SIM-SKIP] {ind.id}: VXD missing")
-                continue
+        history_file = out_path_hist / f"{ind.id}.history"
+        report_file  = out_path_hist / f"{ind.id}_report.xml"
 
-            history_file = out_path_hist / f"{ind.id}.history"
-            report_file  = out_path_hist / f"{ind.id}_report.xml"
+        cmd = [
+            str(sim_bin),
+            "-l",
+            "-w", str(worker_bin),
+            "-i", str(robot_dir),
+            "-o", str(report_file),
+            "-f",
+        ]
 
-            # throttle to max_parallel
-            while True:
-                running = [p for _, p, _, _, _, _ in procs if p.poll() is None]
-                if len(running) < max_parallel:
-                    break
-                time.sleep(0.05)
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            if attempt > 1 and CLEAN_BEFORE_RETRY:
+                cleanup_outputs(ind.id, history_file, report_file)
 
-            # Admission control
-            admitted = admit_or_defer(min_free_bytes, ADMIT_TRIALS, ADMIT_SLEEP_SEC)
-            if not admitted:
-                print(f"[{round_name}][ADMIT-DEFER] {ind.id}: low free VRAM; deferring to retry pass.")
-                retry_queue.append(ind)
-                continue
+            # Run sim, capture stdout to history, stderr in memory
+            attempt_t0 = time.perf_counter()
 
-            cmd = [
-                str(sim_bin),
-                "-l",
-                "-w", str(worker_bin),
-                "-i", str(robot_dir),
-                "-o", str(report_file),
-                "-f",
-            ]
+            with open(history_file, "w", encoding="utf-8") as out_f:
+                p = subprocess.Popen(
+                    cmd,
+                    stdout=out_f,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
 
-            launch_free = get_free_vram_bytes()
-            launch_note = f"{launch_free}B free VRAM at launch" if launch_free is not None else "NVML unavailable"
-
-            out_f = open(history_file, "w")
-            p = subprocess.Popen(
-                cmd,
-                stdout=out_f,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            procs.append((ind, p, out_f, history_file, report_file, launch_note))
-
-        # ---- Wait & collect ----
-        for ind, p, out_f, history_file, report_file, launch_note in procs:
-            timed_out = False
-            try:
-                stderr = p.communicate(timeout=SIM_TIMEOUT)[1]
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                print(f"[{round_name}][TIMEOUT] {ind.id} > {SIM_TIMEOUT}s, killing.")
-                p.kill()
+                timed_out = False
                 try:
-                    stderr = p.communicate(timeout=5)[1]
+                    stderr = p.communicate(timeout=SIM_TIMEOUT_SEC)[1]
                 except subprocess.TimeoutExpired:
-                    stderr = "<no stderr after kill>"
-            finally:
-                try:
-                    out_f.close()
-                except Exception:
-                    pass
+                    timed_out = True
+                    print(f"[TIMEOUT] {ind.id} attempt {attempt}/{MAX_ATTEMPTS} > {SIM_TIMEOUT_SEC}s, killing.")
+                    p.kill()
+                    try:
+                        stderr = p.communicate(timeout=15)[1]
+                    except subprocess.TimeoutExpired:
+                        stderr = "<no stderr after kill>"
 
-            # read history for classification
+            # Read history for classification
             try:
                 hist_text = history_file.read_text(encoding="utf-8", errors="ignore") if history_file.exists() else ""
             except Exception as e:
@@ -304,68 +245,68 @@ def simulate_voxcraft_batch(population, args):
             status_hist = classify_text(hist_text)
             status_err  = classify_text(stderr)
 
-            # Fatal wins immediately
+            # Fatal: abort whole run
             if "fatal" in (status_hist, status_err):
                 fatal_flag = Path(args.out_path) / args.study_name / "FATAL"
                 write_fatal_flag_atomic(fatal_flag, f"CUDA FATAL on robot {ind.id}. See {history_file}")
                 tail = "\n".join(hist_text.splitlines()[-120:]) if hist_text else "<no history>"
                 print(
-                    f"\n[{round_name}][SIM-CRITICAL] {ind.id}: fatal GPU/driver/runtime error.\n"
+                    f"\n[SIM-CRITICAL] {ind.id}: fatal GPU/driver/runtime error.\n"
                     f"----- history tail -----\n{tail}\n----- end tail -----\n",
                     file=sys.stderr, flush=True
                 )
                 sys.exit(2)
 
-            # Try to use the actual report (ACCEPT even with rc!=0 or recoverable noise)
+            # Success only if a report exists and we can extract a number
             actual_report = find_report(report_file)
-            report_exists = actual_report is not None
-            parse_ok = False
-            if report_exists and not timed_out:
+            if actual_report is not None and not timed_out:
                 try:
-                    displacement = parse_fitness_from_report(actual_report)
-                    ind.displacement = displacement
-                    parse_ok = True
-                except Exception:
-                    parse_ok = False
+                    ind.displacement = parse_fitness_from_report(actual_report)
+                    attempt_dt = time.perf_counter() - attempt_t0
+                    print(f"[SIM-OK] {ind.id} attempt {attempt}/{MAX_ATTEMPTS}: {attempt_dt:.2f}s")
 
-            if parse_ok:
-                notes = []
-                if p.returncode != 0: notes.append(f"rc={p.returncode}")
-                if status_hist == "recoverable": notes.append("hist=recoverable")
-                if status_err  == "recoverable": notes.append("stderr=recoverable")
-                # if notes:
-                #     print(f"[{round_name}][SIM-OK-WARN] {ind.id}: report parsed with warnings ({', '.join(notes)}); {launch_note}")
-                # else:
-                #     print(f"[{round_name}][SIM-OK] {ind.id}: report parsed; {launch_note}")
-                # continue
-
-            # If no report parse, ACCEPT when rc==0 and no error tokens
-            if p.returncode == 0 and status_hist == "ok" and status_err == "ok" and not timed_out:
-               # print(f"[{round_name}][SIM-OK-WARN] {ind.id}: no/invalid report but rc==0 & no error tokens; accepting; {launch_note}")
-                # Optional: provide a default behavior if needed:
-                # ind.displacement = 0.0
-                continue
-
-            # Otherwise treat as recoverable (give clear reason)
-            reason = explain_classification(ind.id, p.returncode, timed_out, status_hist, status_err, report_exists, parse_ok)
-            print(f"[{round_name}][SIM-RECOVERABLE] {ind.id}: {reason}. See {history_file} | {launch_note}")
-            if RETRY_RECOVERABLES:
-                retry_queue.append(ind)
+                    return True
+                except Exception as e:
+                    parse_err = f"parse failed: {e}"
             else:
-                errors.append(f"[RECOVERABLE] {ind.id}: {reason}")
+                parse_err = "missing report" if actual_report is None else "timed out"
 
-        return retry_queue
+            # Failed attempt -> retry with backoff (unless last attempt)
+            reason_bits = []
+            if timed_out:
+                reason_bits.append("timeout")
+            if p.returncode != 0:
+                reason_bits.append(f"rc={p.returncode}")
+            if status_err != "ok":
+                reason_bits.append(f"stderr={status_err}")
+            if status_hist != "ok":
+                reason_bits.append(f"hist={status_hist}")
+            reason_bits.append(parse_err)
 
-    # ===== First pass =====
-    initial_list = [ind for ind in population if getattr(ind, "valid", True)]
-    retry_queue = _run_pass(initial_list, MAX_PARALLEL_FIRST, "PASS1")
+            reason = ", ".join(reason_bits)
 
-    # ===== Retry passes =====
-    for r in range(1, RETRY_ROUNDS + 1):
-        if not retry_queue:
-            break
-        print(f"[RETRY] Round {r} starting with {len(retry_queue)} robots...")
-        retry_queue = _run_pass(retry_queue, MAX_PARALLEL_RETRY, f"RETRY{r}")
+            if attempt < MAX_ATTEMPTS:
+                sleep_s = BACKOFF_BASE_SEC * attempt
+                print(f"[SIM-RETRY] {ind.id} attempt {attempt}/{MAX_ATTEMPTS} failed: {reason} -> sleep {sleep_s:.1f}s")
+                time.sleep(sleep_s)
+            else:
+                print(f"[SIM-FAIL]  {ind.id} failed after {MAX_ATTEMPTS} attempts: {reason}. See {history_file}")
+                return False
 
-    if retry_queue:
-        print(f"[RETRY] Unresolved after {RETRY_ROUNDS} rounds: {len(retry_queue)} robots (skipped).")
+        return False
+
+    # ---- Serial loop ----
+    total = 0
+    ok = 0
+    failed = 0
+
+    for ind in population:
+        if not getattr(ind, "valid", True):
+            continue
+        total += 1
+        if run_one(ind):
+            ok += 1
+        else:
+            failed += 1
+
+    print(f"[SIM-DONE] total={total} ok={ok} failed={failed}")

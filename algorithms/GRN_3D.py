@@ -277,7 +277,7 @@ class GRN:
     def place_voxel(self, parent_cell):
         product_concentrations = []
 
-        for idm in range(0, len(self.structural_products)):
+        for idm in range(0, len(self.structural_products)-1):
             # sum concentration of all diffusion sites
             # (structural_products come first in product_tfs)
             concentration = sum(parent_cell.transcription_factors[self.product_tfs[idm]]) \
@@ -286,6 +286,9 @@ class GRN:
 
         # chooses structural tf with the highest concentration
         idx_max = product_concentrations.index(max(product_concentrations))
+
+        concentration_phase = sum(parent_cell.transcription_factors[self.product_tfs[-1]]) \
+            if parent_cell.transcription_factors.get(self.product_tfs[-1]) else 0
 
         # if tf concentration above a threshold
         if product_concentrations[idx_max] > self.concentration_threshold:
@@ -306,6 +309,9 @@ class GRN:
 
                     if self.phenotype[tuple(potential_child_coord)] == 0:
                         key, voxel_type = list(self.structural_products.items())[idx_max]
+                        # makes muscle offphase
+                        if voxel_type == self.voxel_types['phase_muscle'] and concentration_phase > self.concentration_threshold:
+                            voxel_type += 1
                         self.quantity_voxels += 1
                         self.new_cell(voxel_type, parent_cell, slot, child_slot, potential_child_coord)
 
@@ -377,7 +383,9 @@ class GRN:
         mother_tf_injection = float(self.genes[first_gene_idx][min_value_idx])
 
         middle_pos = [s // 2 for s in self.phenotype.shape]
-        first_cell = Cell(voxel_type=self.voxel_types['muscle'], parent_cell=None, xyz_coordinates=middle_pos)
+        first_cell = Cell(voxel_type=self.voxel_types['offphase_muscle'],
+                          parent_cell=None,
+                          xyz_coordinates=middle_pos)
         first_cell.xyz_coordinates = middle_pos
         # distributes injection among diffusion sites
         first_cell.transcription_factors[mother_tf_label] = \

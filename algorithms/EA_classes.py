@@ -72,6 +72,7 @@ class Individual:
         self.genome = genome
         self.parent1_id = parent1_id
         self.parent2_id = parent2_id
+        self.born_generation = None
         self.phenotype = None
         self.valid = 0    # invalid until successfully evaluated
 

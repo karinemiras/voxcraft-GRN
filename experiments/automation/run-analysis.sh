@@ -15,46 +15,26 @@ source "$params_file"
 set +a
 
 
-#python3 ${docker_path}/experiments/analysis/consolidate.py \
-# --study_name "$study_name" \
-# --experiments "$experiments" \
-# --runs "$runs" \
-# --out_path "$out_path" \
-# --final_gen "$final_gen";
-#
-#papermill "experiments/analysis/analysis.ipynb" \
-#          "experiments/analysis/analysis-executed.ipynb" \
-#          -p study_name  "$study_name" \
-#          -p experiments "$experiments" \
-#          -p runs "$runs" \
-#          -p generations "$generations" \
-#          -p final_gen "$final_gen" \
-#          -p out_path "$out_path"
-#
-#
-#python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
-#  --study_name "$study_name" \
-#  --experiments "$experiments" \
-#  --tfs "$tfs" \
-#  --runs "$runs" \
-#  --generations "$generations" \
-#  --out_path "$out_path" \
-#  --max_voxels "$max_voxels" \
-#  --cube_face_size "$cube_face_size" \
-#  --env_conditions "$env_conditions" \
-#  --algorithm "$algorithm" \
-#  --plastic "$plastic"
-#
-#
-#python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
-#  --study_name "$study_name" \
-#  --experiments "$experiments" \
-#  --runs "$runs" \
-#  --generations "$generations" \
-#  --out_path "$out_path"
+python3 ${docker_path}/experiments/analysis/consolidate.py \
+ --study_name "$study_name" \
+ --experiments "$experiments" \
+ --runs "$runs" \
+ --out_path "$out_path" \
+ --final_gen "$final_gen";
 
 
-python3 ${docker_path}/experiments/analysis/family_tree.py \
+
+papermill "experiments/analysis/analysis.ipynb" \
+          "experiments/analysis/analysis-executed.ipynb" \
+          -p study_name  "$study_name" \
+          -p experiments "$experiments" \
+          -p runs "$runs" \
+          -p generations "$generations" \
+          -p final_gen "$final_gen" \
+          -p out_path "$out_path"
+
+
+python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --study_name "$study_name" \
   --experiments "$experiments" \
   --tfs "$tfs" \
@@ -66,3 +46,25 @@ python3 ${docker_path}/experiments/analysis/family_tree.py \
   --env_conditions "$env_conditions" \
   --algorithm "$algorithm" \
   --plastic "$plastic"
+
+
+python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
+  --study_name "$study_name" \
+  --experiments "$experiments" \
+  --runs "$runs" \
+  --generations "$generations" \
+  --out_path "$out_path"
+
+
+#python3 ${docker_path}/experiments/analysis/family_tree.py \
+#  --study_name "$study_name" \
+#  --experiments "$experiments" \
+#  --tfs "$tfs" \
+#  --runs "$runs" \
+#  --generations "$generations" \
+#  --out_path "$out_path" \
+#  --max_voxels "$max_voxels" \
+#  --cube_face_size "$cube_face_size" \
+#  --env_conditions "$env_conditions" \
+#  --algorithm "$algorithm" \
+#  --plastic "$plastic"

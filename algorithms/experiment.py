@@ -68,6 +68,7 @@ class Experiment:
         ind = Individual(genome=r.genome, id_counter=r.robot_id,
                          parent1_id=r.parent1_id, parent2_id=r.parent2_id)
         ind.valid = r.valid
+        ind.born_generation = r.born_generation
 
         # copy absolute metrics exactly as stored
         for m in METRICS_ABS:
@@ -129,19 +130,19 @@ class Experiment:
         with self.Session() as s, s.begin():  # s.begin() = single atomic transaction
             # Stage robot rows first (so FK to robot_id exists when survivors insert)
             for ind in robots_this_gen:
-                self._stage_robot(s, ind, born_generation=generation)
+                self._stage_robot(s, ind)
             s.flush()  # optional: surfaces issues before adding survivors
 
             # Stage survivors
             self._stage_generation_survivors(s, generation, survivors_this_gen)
             # exiting the with-block commits; any exception rolls back everything
 
-    def _stage_robot(self, s, individual, born_generation):
+    def _stage_robot(self, s, individual):
         row = s.get(Robot, individual.id)
         if row is None:
             data = {
                 "robot_id": individual.id,
-                "born_generation": int(born_generation),
+                "born_generation": int(individual.born_generation),
                 "genome": individual.genome,
                 "valid": individual.valid,
                 "parent1_id": individual.parent1_id,

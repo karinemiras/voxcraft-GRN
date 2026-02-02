@@ -16,8 +16,8 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="voxlocnov"
-experiments="crosspropxyv4s25"
+study_name="voxloc"
+experiments="agedisp"
 
 # one tf definition per experiment
 tfs="reg2"
@@ -40,11 +40,11 @@ watchruns=$runs
 
 algorithm="basic_EA"
 
-fitness_metric="displacement"
+fitness_metric="dominated_disp_age"
 
 plastic=0
 
-num_generations="125"
+num_generations="100"
 
 population_size="50"
 
@@ -52,7 +52,7 @@ offspring_size="50"
 
 # gens for box-plots, snapshots, videos (by default the last gen)
 #generations="1,$num_generations"
-generations="50,100,$num_generations"
+generations="$num_generations"
 
 # max gen to filter line-plots  (by default the last gen)
 final_gen="$num_generations"

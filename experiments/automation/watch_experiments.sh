@@ -10,7 +10,9 @@ if [ $# -eq 0 ]
     params_file=$1
 fi
 
+set -a
 source "$params_file"
+set +a
 
 python3 experiments/analysis/watch_robots.py \
   --study_name "$study_name" \

@@ -64,12 +64,14 @@ class EA(Experiment):
 
         return phenotype_materials
 
-    def initialize_population(self, size):
+    def initialize_population(self, size, generation):
         individuals = []
         for _ in range(size):
             self.id_counter += 1
-            individuals.append(Individual(initialization(self.rng, self.INI_GENOME_SIZE), self.id_counter,
-                                                         parent1_id=None, parent2_id=None))
+            ind= Individual(initialization(self.rng, self.INI_GENOME_SIZE), self.id_counter,
+                                                         parent1_id=None, parent2_id=None)
+            ind.born_generation = generation
+            individuals.append(ind)
         return individuals
 
     def mutate(self, individual):
@@ -107,7 +109,7 @@ class EA(Experiment):
         if recovered_population is None:
             # Fresh start
             generation = 1
-            population = self.initialize_population(self.population_size)
+            population = self.initialize_population(self.population_size, generation)
 
             for ind in population:
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
@@ -122,7 +124,7 @@ class EA(Experiment):
                 for ind in population:
                     behavior_abs_metrics(ind)
 
-            relative_metrics(population, self.args)
+            relative_metrics(population, self.args, generation)
 
             # persist parents as both robots and survivors for gen 1
             self._persist_generation_atomic(generation, population, population)
@@ -151,6 +153,7 @@ class EA(Experiment):
                     co_attempts += 1
 
                 child = self.crossover(parent1, parent2)
+                child.born_generation = generation
                 self.mutate(child)
                 offspring.append(child)
 
@@ -168,7 +171,7 @@ class EA(Experiment):
 
             # Combine parents and offspring into a pool
             pool = population + offspring
-            relative_metrics(pool, self.args)
+            relative_metrics(pool, self.args, generation)
 
             # Select next generation (unique winners)
             new_population = []
@@ -181,7 +184,7 @@ class EA(Experiment):
                 pool.remove(winner)  # ensures uniqueness
 
             population = new_population
-            relative_metrics(population, self.args)
+            relative_metrics(population, self.args, generation)
 
             # Persist this generation atomically
             self._persist_generation_atomic(generation, offspring, population)

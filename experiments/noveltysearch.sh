@@ -13,7 +13,7 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="voxlocnov"
+study_name="nov2"
 experiments="crosspropxyv4s25"
 
 # one tf definition per experiment
@@ -24,7 +24,7 @@ env_conditions="none"
 
 ####
 
-nruns=10
+nruns=5
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -41,7 +41,7 @@ fitness_metric="local_novelty"
 
 plastic=0
 
-num_generations="25"
+num_generations="50"
 
 population_size="50"
 

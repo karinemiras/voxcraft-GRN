@@ -87,6 +87,7 @@ def main():
                     for idx, (robot_row, surv_row) in enumerate(rows[:numberrobots]):
                         genome = robot_row.genome
 
+
                         phenotype = EA.develop_phenotype(genome, tf_for_exp)
                         draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, idx, round(surv_row.fitness, 4), gen_dir)
 
