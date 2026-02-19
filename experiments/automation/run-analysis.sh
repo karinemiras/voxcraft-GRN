@@ -48,12 +48,12 @@ python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --plastic "$plastic"
 
 
-python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
-  --study_name "$study_name" \
-  --experiments "$experiments" \
-  --runs "$runs" \
-  --generations "$generations" \
-  --out_path "$out_path"
+#python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
+#  --study_name "$study_name" \
+#  --experiments "$experiments" \
+#  --runs "$runs" \
+#  --generations "$generations" \
+#  --out_path "$out_path"
 
 
 #python3 ${docker_path}/experiments/analysis/family_tree.py \

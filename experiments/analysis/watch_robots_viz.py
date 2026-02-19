@@ -12,8 +12,10 @@ sys.path.append(str(ROOT))
 
 from utils.config import Config
 
+VIZPATH="/Users/karinemiras/projects/voxcraft-viz/build"
+PARAMS_EXP = "locomotion.sh"
 VIZ_SECONDS=10
-TIMEOUT=5
+NUMBESTS=1
 
 def load_sh_params(path: Path) -> dict:
     params = {}
@@ -84,13 +86,13 @@ def main():
     args = Config()._get_params()
 
     # --- load params from experiments/locomotion.sh -------------------------
-    params_path = ROOT / "experiments" / "locomotion.sh"
+    params_path = ROOT / "experiments" / PARAMS_EXP
     if not params_path.exists():
         raise FileNotFoundError(f"params file not found: {params_path}")
 
     params = load_sh_params(params_path)
 
-    local_build_dir = Path(params.get("LOCAL_BUILD_DIR", "/Users/karinemiras/projects/voxcraft-viz/build"))
+    local_build_dir = Path(params.get("LOCAL_BUILD_DIR", VIZPATH))
     voxcraft_viz = Path(params.get("VOXCRAFT_VIZ", str(local_build_dir / "voxcraft-viz")))
 
     if not voxcraft_viz.exists():
@@ -116,7 +118,7 @@ def main():
     out_path = args.out_path  # likely "/working_data"
     # -----------------------------------------------------------------------
 
-    bests = int(getattr(args, "bests", 1))
+    bests = int(getattr(args, "bests", NUMBESTS))
 
     mount_root = ROOT.parent
     out_path_local = localize_remote_path(out_path, mount_root)

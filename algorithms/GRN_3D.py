@@ -4,14 +4,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
-from algorithms.voxel_types import VOXEL_TYPES
+from algorithms.voxel_types import VOXEL_TYPES, TF_WEIGHTS
 
 # a Gene Regulatory Network
 class GRN:
     # cube
     diffusion_sites_qt = 6
 
-    def __init__(self, promoter_threshold=0.8, max_voxels=10, cube_face_size=3,
+    def __init__(self, promoter_threshold=0.95, max_voxels=27, cube_face_size=3,
                   genotype=None, tfs='reg2', env_conditions=None, plastic=None):
 
         self.max_voxels = max_voxels
@@ -34,32 +34,43 @@ class GRN:
         self.promoter_threshold = promoter_threshold
         self.concentration_decay = 0.005
         self.cube_face_size = cube_face_size
+
+        # NOTE: if u increase number of reg tfs without increasing voxels tf or geno size,
+        # too many tiny robots are sampled
         self.structural_products = None
+        self.structural_products = VOXEL_TYPES
 
-        self.voxel_types = VOXEL_TYPES
-
-        # if u increase number of reg tfs without increasing voxels tf or geno size,
-        # too many single-=cell robots are sampled
         if tfs == 'reg2':  # balanced, number of regulatory tfs similar to number of voxels tfs
+            # number of regulatory tfs
             self.regulatory_products = 2
-            self.structural_products = self.voxel_types
-        elif tfs == '':  # more regulatory, number of regulatory tfs much greater than the number of voxels tfs
+        elif tfs == '':  
             pass
 
-        # structural_tfs use initial indexes and regulatory tfs uses final indexes
-        self.product_tfs = []
-        for tf in range(1, len(self.structural_products)+1):
-            self.product_tfs.append(f'TF{tf}')
+        # structural_tfs use initial indexes (excludes voxel_type offphase
+        # and regulatory tfs uses final (leftover) indexes
+        self.structural_tfs = []
+        for tf in range(1, len(self.structural_products)):
+            self.structural_tfs.append(f'TF{tf}')
 
         self.increase_scaling = 100
         self.intra_diffusion_rate = self.concentration_decay/2
         self.inter_diffusion_rate = self.intra_diffusion_rate/8
-        self.dev_steps = 100
-        self.concentration_threshold = self.genotype[0]
-        self.genotype = self.genotype[1:]
-        # TODO: evolve all params in the future?
+        self.dev_steps = 200
+        self.concentration_threshold = np.minimum(0.1, self.genotype[0])
+
+        #  params for phase alternation
+        self.offphase_alternation_param = float(self.genotype[1])
+        self.offphase_alternation_range = [1, 4]
+        self._phase_run = 0
+
+        self.genotype = self.genotype[2:]
 
     def develop(self):
+        k_min, k_max = self.offphase_alternation_range
+        span = (k_max - k_min + 1)
+        k = k_min + int(self.offphase_alternation_param * span)
+        self.offphase_alternation_k = min(k, k_max)
+
         self.develop_body()
         return self.phenotype
 
@@ -88,41 +99,52 @@ class GRN:
                     regulatory_v1 = self.genotype[nucleotide_idx+self.regulatory_v1_idx+1]
                     regulatory_v2 = self.genotype[nucleotide_idx+self.regulatory_v2_idx+1]
                     transcription_factor = self.genotype[nucleotide_idx+self.transcription_factor_idx+1] # gene product
-                    transcription_factor_amount = self.genotype[nucleotide_idx+self.transcription_factor_amount_idx+1]
+                    transcription_factor_amount = max(0.1, self.genotype[nucleotide_idx+self.transcription_factor_amount_idx+1])
                     diffusion_site = self.genotype[nucleotide_idx+self.diffusion_site_idx+1]
 
-                    # begin: converts tfs values into labels #
-                    total = len(self.structural_products) + self.regulatory_products
-                    range_size = 1 / total
-                    limits = np.linspace(0, 1 - range_size, total)
-                    limits = [round(limit, 2) for limit in limits]
+                    # converts tfs values into labels
+                    # remember that structural_tfs use initial indexes and regulatory tfs uses final (leftover) indexes
+                    limits, total = self.build_tf_limits(self.structural_products,self.regulatory_products, TF_WEIGHTS)
+                    regulatory_transcription_factor_label = self.tf_value_to_label(regulatory_transcription_factor, limits)
+                    transcription_factor_label = self.tf_value_to_label(transcription_factor, limits)
 
-                    for idx in range(0, len(limits)-1):
-
-                        if regulatory_transcription_factor >= limits[idx] and regulatory_transcription_factor < limits[idx+1]:
-                            regulatory_transcription_factor_label = 'TF'+str(idx+1)
-                        elif regulatory_transcription_factor >= limits[idx+1]:
-                            regulatory_transcription_factor_label = 'TF' + str(len(limits))
-
-                        if transcription_factor >= limits[idx] and transcription_factor < limits[idx+1]:
-                            transcription_factor_label = 'TF'+str(idx+1)
-                        elif transcription_factor >= limits[idx+1]:
-                            transcription_factor_label = 'TF'+str(len(limits))
-                    # ends: converts tfs values into labels #
-
-                    # begin: converts diffusion sites values into labels #
+                    #  converts diffusion sites values into labels
                     range_size = 1.0 / GRN.diffusion_sites_qt
                     diffusion_site_label = min(int(diffusion_site / range_size), GRN.diffusion_sites_qt - 1)
-                    # ends: converts diffusion sites values into labels #
 
                     gene = [regulatory_transcription_factor_label, regulatory_v1, regulatory_v2,
                             transcription_factor_label, transcription_factor_amount, diffusion_site_label]
-
+               
                     self.genes.append(gene)
 
                     nucleotide_idx += self.types_nucleotides
             nucleotide_idx += 1
         self.genes = np.array(self.genes)
+
+    def build_tf_limits(self, structural_products, regulatory_products, tf_weights):
+        structural_products = dict(list(structural_products.items())[:-1])
+        weights = []
+        for name in structural_products:
+            weights.append(float(tf_weights[name]))
+        reg_w = float(tf_weights.get("regulatory", 1.0))
+        weights.extend([reg_w] * regulatory_products)
+        weights = np.asarray(weights, dtype=float)
+        weights /= weights.sum()
+        limits = np.concatenate(([0.0], np.cumsum(weights)))
+        limits[-1] = 1.0  # numeric safety
+
+        return limits, weights.size
+
+    def tf_value_to_label(self, value, limits):
+        # Clamp into [0,1) to avoid edge cases (value==1.0)
+        v = float(value)
+        if v >= 1.0:
+            v = np.nextafter(1.0, 0.0)
+        elif v < 0.0:
+            v = 0.0
+        idx = np.searchsorted(limits, v, side="right") - 1
+        idx = max(0, min(idx, len(limits) - 2))
+        return f"TF{idx + 1}"
 
     def net_parser(self):
 
@@ -277,18 +299,14 @@ class GRN:
     def place_voxel(self, parent_cell):
         product_concentrations = []
 
-        for idm in range(0, len(self.structural_products)-1):
+        for idm in range(0, len(self.structural_products)-1): # excludes voxel_type offphase
             # sum concentration of all diffusion sites
-            # (structural_products come first in product_tfs)
-            concentration = sum(parent_cell.transcription_factors[self.product_tfs[idm]]) \
-                if parent_cell.transcription_factors.get(self.product_tfs[idm]) else 0
+            concentration = sum(parent_cell.transcription_factors[self.structural_tfs[idm]]) \
+                if parent_cell.transcription_factors.get(self.structural_tfs[idm]) else 0
             product_concentrations.append(concentration)
 
         # chooses structural tf with the highest concentration
         idx_max = product_concentrations.index(max(product_concentrations))
-
-        concentration_phase = sum(parent_cell.transcription_factors[self.product_tfs[-1]]) \
-            if parent_cell.transcription_factors.get(self.product_tfs[-1]) else 0
 
         # if tf concentration above a threshold
         if product_concentrations[idx_max] > self.concentration_threshold:
@@ -297,7 +315,7 @@ class GRN:
             freeslots = np.array([c is None for c in parent_cell.children])
             if any(freeslots):
                 true_indices = np.where(freeslots)[0]
-                values_at_true_indices = np.array(parent_cell.transcription_factors[self.product_tfs[idx_max]])[true_indices]
+                values_at_true_indices = np.array(parent_cell.transcription_factors[self.structural_tfs[idx_max]])[true_indices]
                 max_value_index = np.argmax(values_at_true_indices)
                 position_of_max_value = true_indices[max_value_index]
                 slot = position_of_max_value
@@ -309,9 +327,15 @@ class GRN:
 
                     if self.phenotype[tuple(potential_child_coord)] == 0:
                         key, voxel_type = list(self.structural_products.items())[idx_max]
-                        # makes muscle offphase
-                        if voxel_type == self.voxel_types['phase_muscle'] and concentration_phase > self.concentration_threshold:
-                            voxel_type += 1
+
+                        # --- offphase alternation: starts with phase ---
+                        if voxel_type == self.structural_products['phase_muscle']:
+                            if self._phase_run >= self.offphase_alternation_k:
+                                voxel_type = self.structural_products['offphase_muscle']
+                                self._phase_run = 0
+                            else:
+                                self._phase_run += 1
+
                         self.quantity_voxels += 1
                         self.new_cell(voxel_type, parent_cell, slot, child_slot, potential_child_coord)
 
@@ -382,8 +406,10 @@ class GRN:
         mother_tf_label = self.genes[first_gene_idx][tf_label_idx]
         mother_tf_injection = float(self.genes[first_gene_idx][min_value_idx])
 
+        # TODO: do we really need to force the first cell?
         middle_pos = [s // 2 for s in self.phenotype.shape]
-        first_cell = Cell(voxel_type=self.voxel_types['offphase_muscle'],
+        # chosen initial cell is offphase, to counteract phase bias of anternation
+        first_cell = Cell(voxel_type=self.structural_products['offphase_muscle'],
                           parent_cell=None,
                           xyz_coordinates=middle_pos)
         first_cell.xyz_coordinates = middle_pos
@@ -571,10 +597,11 @@ def unequal_crossover(
     parent2 = parent2.genome
 
     types_nucleotides = 6
-    # the first nucleotide is the concentration
+    # the first nucleotides are params
+    params_nucleotides = 1
     new_genotype = [(parent1[0] + parent2[0]) / 2]
-    p1 = parent1[1:]
-    p2 = parent2[1:]
+    p1 = parent1[params_nucleotides:]
+    p2 = parent2[params_nucleotides:]
 
     for parent in [p1, p2]:
         nucleotide_idx = 0

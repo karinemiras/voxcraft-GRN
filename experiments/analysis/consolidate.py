@@ -99,7 +99,9 @@ class Analysis:
         # === all_df (filtered) =================================================
         all_df = pd.concat(frames, ignore_index=True)
         all_df = all_df[all_df["generation"] <= self.final_gen].reset_index(drop=True)
-        all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        #all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        all_df.replace([-1000, -np.inf], np.nan, inplace=True)
+
         all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
 
         # === consolidated robots ==============================================

@@ -125,9 +125,9 @@ def simulate_voxcraft_batch(population, args):
         raise FileNotFoundError(f"Worker binary not found at {worker_bin}")
 
     # ---- Tunables (favor success + correctness) ----
-    SIM_TIMEOUT_SEC     = 60        # give robots slack
-    MAX_ATTEMPTS        = 2          # retry a bunch
-    BACKOFF_BASE_SEC    = 5.0        # attempt 1-> sleep 2s, attempt2->4s, etc.
+    SIM_TIMEOUT_SEC     = 300 #60        # give robots slack
+    MAX_ATTEMPTS        = 3 #2          # retry a bunch
+    BACKOFF_BASE_SEC    = 10 # 5.0        # attempt 1-> sleep 2s, attempt2->4s, etc.
     CLEAN_BEFORE_RETRY  = True       # delete stale outputs before retrying
 
     out_path_hist = (

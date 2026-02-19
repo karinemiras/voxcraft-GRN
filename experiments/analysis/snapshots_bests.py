@@ -18,6 +18,7 @@ from utils.config import Config
 def main():
     args = Config()._get_params()
 
+    study_name = args.study_name
     experiments = args.experiments.split(",")
     runs = list(map(int, args.runs.split(",")))
     generations = list(map(int, args.generations.split(",")))
@@ -30,7 +31,7 @@ def main():
     cls = getattr(module, class_name)
     EA = cls(args)
 
-    numberrobots = 50  # top-N per generation
+    numberrobots = 100  # top-N per generation
 
     for exp_idx, experiment_name in enumerate(experiments):
         print(experiment_name)
@@ -40,11 +41,11 @@ def main():
         for run in runs:
             print(" run:", run)
 
-            snapshot_root = f"{args.out_path}/{args.study_name}/analysis/snapshots/{experiment_name}/run_{run}"
+            snapshot_root = f"{args.out_path}/{study_name}/analysis/snapshots/{experiment_name}/run_{run}"
             print(snapshot_root)
             os.makedirs(snapshot_root, exist_ok=True)
 
-            db_path = f"{args.out_path}/{args.study_name}/{experiment_name}/run_{run}/run_{run}"
+            db_path = f"{args.out_path}/{study_name}/{experiment_name}/run_{run}/run_{run}"
             print(db_path)
             if not os.path.exists(db_path):
                 raise FileNotFoundError(

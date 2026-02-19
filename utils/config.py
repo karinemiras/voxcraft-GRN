@@ -25,7 +25,7 @@ class Config():
         parser.add_argument(
             "--study_name",
             required=False,
-            default="defaultstudy",
+            default="defaultstudy3",
             type=str,
             help="",
         )
@@ -49,21 +49,21 @@ class Config():
         parser.add_argument(
             "--population_size",
             required=False,
-            default=4,
+            default=100,
             type=int,
         )
 
         parser.add_argument(
             "--offspring_size",
             required=False,
-            default=4,
+            default=100,
             type=int,
         )
 
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=5,
+            default=100,
             type=int,
         )
 
@@ -84,7 +84,15 @@ class Config():
         parser.add_argument(
             "--max_voxels",
             required=False,
-            default=15,
+            default=125,
+            type=int,
+            help="",
+        )
+
+        parser.add_argument(
+            "--cube_face_size",
+            required=False,
+            default=5,
             type=int,
             help="",
         )
@@ -95,14 +103,6 @@ class Config():
             default="reg2",
             type=str,
             help="list of tfs config",
-        )
-
-        parser.add_argument(
-            "--cube_face_size",
-            required=False,
-            default=3,
-            type=int,
-            help="",
         )
 
         parser.add_argument(
@@ -138,7 +138,7 @@ class Config():
         parser.add_argument(
             "--fitness_metric",
             required=False,
-            default="displacement",
+            default="novelty", #displacement
             type=str,
         )
 

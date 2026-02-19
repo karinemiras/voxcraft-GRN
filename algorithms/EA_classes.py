@@ -80,7 +80,8 @@ class Individual:
         for m in METRICS_ABS:
             # displacement (x) is the only one that previously had -inf default
             if m == "displacement":
-                setattr(self, m, float('-inf'))
+                # setattr(self, m, float('-inf'))
+                setattr(self, m, -1000)
             else:
                 setattr(self, m, None)
 

@@ -3,6 +3,7 @@ import sys
 import numpy as np
 from pathlib import Path
 import shutil
+import time
 
 # make voxcraft folder the root
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,8 +29,11 @@ class EA(Experiment):
 
         # experiment-level params used by EA logic
         self.MAX_GENOME_SIZE = 1000
-        self.INI_GENOME_SIZE = 150
-        self.PROMOTOR_THRESHOLD = 0.8
+        self.INI_GENOME_SIZE = 300
+        self.PROMOTOR_THRESHOLD = 0.95
+
+        self.novelty_archive = []
+        self.archive_add_frac = 0.05
 
         self.docker_path = self.args.docker_path
         self.cube_face_size = self.args.cube_face_size
@@ -110,6 +114,7 @@ class EA(Experiment):
             # Fresh start
             generation = 1
             population = self.initialize_population(self.population_size, generation)
+            self.update_novelty_archive(population)
 
             for ind in population:
                 ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
@@ -124,7 +129,7 @@ class EA(Experiment):
                 for ind in population:
                     behavior_abs_metrics(ind)
 
-            relative_metrics(population, self.args, generation)
+            relative_metrics(population, self.args, generation, novelty_archive=self.novelty_archive)
 
             # persist parents as both robots and survivors for gen 1
             self._persist_generation_atomic(generation, population, population)
@@ -162,7 +167,9 @@ class EA(Experiment):
                 
                 if self.args.run_simulation:
                     prepare_robot_files(child, self.args)
-                    
+
+            self.update_novelty_archive(offspring)
+
             if self.args.run_simulation:
                 simulate_voxcraft_batch(offspring, self.args)
 
@@ -171,7 +178,7 @@ class EA(Experiment):
 
             # Combine parents and offspring into a pool
             pool = population + offspring
-            relative_metrics(pool, self.args, generation)
+            relative_metrics(pool, self.args, generation, novelty_archive=self.novelty_archive)
 
             # Select next generation (unique winners)
             new_population = []
@@ -184,7 +191,7 @@ class EA(Experiment):
                 pool.remove(winner)  # ensures uniqueness
 
             population = new_population
-            relative_metrics(population, self.args, generation)
+            relative_metrics(population, self.args, generation, novelty_archive=self.novelty_archive)
 
             # Persist this generation atomically
             self._persist_generation_atomic(generation, offspring, population)
@@ -201,8 +208,11 @@ class EA(Experiment):
 
         print("Finished optimizing.")
 
+    def update_novelty_archive(self, individuals):
+        k = max(1, int(round(self.archive_add_frac * len(individuals))))
+        chosen = self.rng.sample(individuals, k)
+        self.novelty_archive.extend(chosen)
 
-import time
 
 if __name__ == "__main__":
     start = time.time()

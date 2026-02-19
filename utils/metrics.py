@@ -2,6 +2,7 @@ import numpy as np
 import sys
 from pathlib import Path
 import math
+from sklearn.neighbors import KDTree
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
@@ -30,17 +31,20 @@ METRICS_REL = [
                 "uniqueness",
                 "fitness",
                 "age",
-                "dominated_disp_age",
+                # "dominated_disp_age",
+                "dominated_disp_novelty",
                 "novelty"
                ]
 
 # metrics relative to other individuals or factors like time
-def relative_metrics(population, args, generation):
+def relative_metrics(population, args, generation, novelty_archive=None):
     uniqueness(population)
-    novelty(population)
+    novelty(population, novelty_archive)
     age(population, generation)
-    pareto_dominance_count( population,
-                            objectives=(("age", "min"), ("displacement", "max")), out_attr="dominated_disp_age")
+    # pareto_dominance_count( population,
+    #                         objectives=(("age", "min"), ("displacement", "max")), out_attr="dominated_disp_age")
+    pareto_dominance_count(population,
+                           objectives=(("novelty", "max"), ("displacement", "max")), out_attr="dominated_disp_nov")
     set_fitness(population, args.fitness_metric)
 
 
@@ -121,22 +125,36 @@ def uniqueness(population):
         for j, other in enumerate(population):
             if i != j:
                 d = tree_edit_distance(ind.phenotype, other.phenotype)
-                distances.append(d)
+                distances.append(d / max(ind.num_voxels, other.num_voxels))
         ind.uniqueness = np.mean(distances)
 
 
-def novelty(population):
-    # TODO: replace by regular novelty ie with archive
-    k = 5
-    # average morphological distance to k nearest neighbors using edit tree distance
-    for i, ind in enumerate(population):
-        distances = []
-        for j, other in enumerate(population):
-            if i != j:
-                d = tree_edit_distance(ind.phenotype, other.phenotype)
-                distances.append(d / max(ind.num_voxels, other.num_voxels))
-        nearest_distances = sorted(distances)[:k]
-        ind.novelty = np.mean(nearest_distances)
+def novelty(population, novelty_archive, k=5, M=50, embed_fn=None):
+    pool = list(population) + list(novelty_archive or [])
+
+    if embed_fn is None:
+        # minimal embedding: 1D vector
+        embed_fn = lambda ind: np.array([ind.num_voxels], dtype=np.float32)
+
+    X = np.vstack([embed_fn(ind) for ind in pool]).astype(np.float32)
+    tree = KDTree(X)
+
+    for ind in population:
+        qi = embed_fn(ind).reshape(1, -1)
+        _, idxs = tree.query(qi, k=min(M + 1, len(pool)))
+        idxs = idxs[0]
+
+        dists = []
+        for j in idxs:
+            other = pool[j]
+            if other is ind:
+                continue
+            d = tree_edit_distance(ind.phenotype, other.phenotype)
+            dists.append(d / max(ind.num_voxels, other.num_voxels))
+
+        kk = min(k, len(dists))
+        ind.novelty = float(np.partition(np.asarray(dists, dtype=np.float32), kk - 1)[:kk].mean()) if kk else 0.0
+
 
 def pareto_dominance_count(
     population,
