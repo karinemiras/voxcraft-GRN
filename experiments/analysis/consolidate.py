@@ -99,8 +99,8 @@ class Analysis:
         # === all_df (filtered) =================================================
         all_df = pd.concat(frames, ignore_index=True)
         all_df = all_df[all_df["generation"] <= self.final_gen].reset_index(drop=True)
-        #all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        all_df.replace([-1000, -np.inf], np.nan, inplace=True)
+        #all_df.replace([-1000, -np.inf], np.nan, inplace=True)
+        all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
         all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
 
@@ -114,11 +114,8 @@ class Analysis:
         # === inner: within runs per generation (mean & max) ====================
         agg_dict = {}
         for m in self.metrics:
-            if m == "fitness":
-                agg_dict["fitness_mean"] = ("fitness", "mean")
-                agg_dict["fitness_max"] = ("fitness", "max")
-            else:
-                agg_dict[f"{m}_mean"] = (m, "mean")
+            agg_dict[f"{m}_mean"] = (m, "mean")
+            agg_dict[f"{m}_max"] = (m, "max")
 
         inner = (
             all_df.groupby(["experiment", "run", "generation"], as_index=False)
@@ -129,21 +126,19 @@ class Analysis:
         # === outer: across runs per generation (median, q25, q75) ==============
         agg_spec = {}
 
-        # summarize MEANS for all metrics
+        # summarize MEANS and max for all metrics
         for m in self.metrics:
             col = f"{m}_mean"
             agg_spec[f"{col}_median"] = (col, "median")
             agg_spec[f"{col}_q25"] = (col, lambda x: x.dropna().quantile(0.25))
             agg_spec[f"{col}_q75"] = (col, lambda x: x.dropna().quantile(0.75))
 
-        # and ONLY FITNESS has MAX
-        col = "fitness_max"
-        agg_spec[f"{col}_median"] = (col, "median")
-        agg_spec[f"{col}_q25"] = (col, lambda x: x.dropna().quantile(0.25))
-        agg_spec[f"{col}_q75"] = (col, lambda x: x.dropna().quantile(0.75))
-
-        outer = inner.groupby(["experiment", "generation"], as_index=False).agg(**agg_spec)
-        outer.to_csv(f"{self.path}/analysis/gens_robots_outer.csv", index=False)
+            col = f"{m}_max"
+            agg_spec[f"{col}_median"] = (col, "median")
+            agg_spec[f"{col}_q25"] = (col, lambda x: x.dropna().quantile(0.25))
+            agg_spec[f"{col}_q75"] = (col, lambda x: x.dropna().quantile(0.75))
+            outer = inner.groupby(["experiment", "generation"], as_index=False).agg(**agg_spec)
+            outer.to_csv(f"{self.path}/analysis/gens_robots_outer.csv", index=False)
 
         print("consolidated!")
 

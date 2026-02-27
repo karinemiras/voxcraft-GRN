@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
-from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS
+from algorithms.voxel_types import VOXEL_TYPES_COLORS, VOXEL_TYPES_COLORS_NOBONE
 from simulation.VoxcraftVXD import VXD
 from simulation.VoxcraftVXA import VXA
 
@@ -45,6 +45,10 @@ def prepare_robot_files(individual, args):
 
     CTE = 0.5
     TARGET_VOL_GAIN = 0.50  # ~50%
+
+    #CTE = 0.01
+    #TARGET_VOL_GAIN = 0.20
+
     TEMP_AMP = amp_for_vol_gain(CTE, TARGET_VOL_GAIN)  # ~ 0.289
     FREQ = 5.0  # Hz
     BASE_PERIOD = 1.0 / FREQ  # 0.2 s
@@ -79,10 +83,39 @@ def prepare_robot_files(individual, args):
     # TempPhase 0-1 (in relation to period)
 
     # Create materials with different properties (order of materials matters to match voxel_types)
-    mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['bone'], E=1e8, RHO=1e4)  # stiff, passive
-    mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['fat'], E=7e5, RHO=1.2e4)  # soft, passive, heavier
-    mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['phase_muscle'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase)  # medium-soft, active
-    mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['offphase_muscle'], E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase)  # medium-soft, active
+    if args.voxel_types == 'withbone':
+        mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['bone'],
+                                E=1e8, RHO=1e4,
+                                uStatic=args.ustatic, uDynamic=args.udynamic)  # stiff, passive
+
+        mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['fat'],
+                                E=7e5, RHO=1.2e4,
+                                uStatic=args.ustatic, uDynamic=args.udynamic)  # soft, passive
+
+        mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['phase_muscle'],
+                                E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase,
+                                uStatic=args.ustatic, uDynamic=args.udynamic) # medium-soft, active
+
+        mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['offphase_muscle'],
+                                E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase,
+                                uStatic=args.ustatic, uDynamic=args.udynamic)  # medium-soft, active
+
+    if args.voxel_types == 'nobone':
+        mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['fat'],
+                                E=7e5, RHO=1.2e4,
+                                uStatic=args.ustatic, uDynamic=args.udynamic)  # soft, passive
+
+        mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['fat2'],
+                                E=7e5, RHO=1.2e4,
+                                uStatic=args.ustatic, uDynamic=args.udynamic)  # soft, passive
+
+        mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['phase_muscle'],
+                                E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase,
+                                uStatic=args.ustatic, uDynamic=args.udynamic) # medium-soft, active
+
+        mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['offphase_muscle'],
+                                E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase,
+                                uStatic=args.ustatic, uDynamic=args.udynamic)  # medium-soft, active
 
     # Write out the vxa (robot) to data/ directory
     vxa.write(f"{out_path}/base.vxa")

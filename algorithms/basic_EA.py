@@ -32,13 +32,13 @@ class EA(Experiment):
         self.INI_GENOME_SIZE = 300
         self.PROMOTOR_THRESHOLD = 0.95
 
-        self.novelty_archive = []
+        self.novelty_archive = [] # TODO: include in recovery
         self.archive_add_frac = 0.05
 
         self.docker_path = self.args.docker_path
         self.cube_face_size = self.args.cube_face_size
         self.max_voxels = self.args.max_voxels
-        self.tfs = self.args.tfs
+        self.voxel_types = self.args.voxel_types
         self.plastic = self.args.plastic
         self.env_conditions = self.args.env_conditions
         self.population_size = self.args.population_size
@@ -48,15 +48,19 @@ class EA(Experiment):
         self.tournament_k = self.args.tournament_k
         self.num_generations = self.args.num_generations
         self.fitness_metric = self.args.fitness_metric
+        # keep top-N by displacement each generation (0 disables)
+        self.elitism = getattr(self.args, "elitism", 3)
+        self.ustatic = self.args.ustatic
+        self.udynamic = self.args.udynamic
 
     # ---------- EA-specific utilities ----------
 
-    def develop_phenotype(self, genome, tfs):
+    def develop_phenotype(self, genome, voxel_types):
         phenotype = GRN(
             promoter_threshold=self.PROMOTOR_THRESHOLD,
             max_voxels=self.max_voxels,
             cube_face_size=self.cube_face_size,
-            tfs=tfs,
+            voxel_types=voxel_types,
             genotype=genome,
             env_conditions=self.env_conditions,
             plastic=self.plastic,
@@ -117,8 +121,8 @@ class EA(Experiment):
             self.update_novelty_archive(population)
 
             for ind in population:
-                ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
-                genopheno_abs_metrics(ind)
+                ind.phenotype = self.develop_phenotype(ind.genome, self.voxel_types)
+                genopheno_abs_metrics(ind, self.args)
 
                 if self.args.run_simulation:
                     prepare_robot_files(ind, self.args)
@@ -162,8 +166,8 @@ class EA(Experiment):
                 self.mutate(child)
                 offspring.append(child)
 
-                child.phenotype = self.develop_phenotype(child.genome, self.tfs)
-                genopheno_abs_metrics(child)
+                child.phenotype = self.develop_phenotype(child.genome, self.voxel_types)
+                genopheno_abs_metrics(child, self.args)
                 
                 if self.args.run_simulation:
                     prepare_robot_files(child, self.args)
@@ -189,6 +193,17 @@ class EA(Experiment):
                 winner = max(contestants, key=lambda ind: ind.fitness)
                 new_population.append(winner)
                 pool.remove(winner)  # ensures uniqueness
+
+            # --- Elitism: keep best displacement ---
+            if self.elitism:
+                # best individual from full evaluated pool
+                elite = max(population + offspring, key=lambda ind: ind.displacement)
+
+                # only inject if not already present
+                if elite not in new_population:
+                    idx = self.rng.randrange(len(new_population))
+                    new_population.pop(idx)
+                    new_population.append(elite)
 
             population = new_population
             relative_metrics(population, self.args, generation, novelty_archive=self.novelty_archive)

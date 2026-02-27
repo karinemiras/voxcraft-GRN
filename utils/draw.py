@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
-from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS
+
 
 
 # voxels perspective
@@ -16,12 +16,12 @@ from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS
 # Z: 1, 1, 4: up / down
 
 
-def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, ranking, fitness, path):
+def draw_phenotype(phenotype, id_individual, CUBE_FACE_SIZE, ranking, fitness, path, voxel_types, voxel_types_colors):
 
     # Define color map for values in body
     color_map = {
-        voxel_id: tuple(c / 255 for c in VOXEL_TYPES_COLORS[name]) + (0.5,)
-        for name, voxel_id in VOXEL_TYPES.items()
+        voxel_id: tuple(c / 255 for c in voxel_types_colors[name]) + (0.5,)
+        for name, voxel_id in voxel_types.items()
     }
 
     # Function to draw a single 1x1x1 cube

@@ -25,7 +25,7 @@ class Config():
         parser.add_argument(
             "--study_name",
             required=False,
-            default="defaultstudy3",
+            default="defaultstudy",
             type=str,
             help="",
         )
@@ -49,21 +49,21 @@ class Config():
         parser.add_argument(
             "--population_size",
             required=False,
-            default=100,
+            default=10,
             type=int,
         )
 
         parser.add_argument(
             "--offspring_size",
             required=False,
-            default=100,
+            default=10,
             type=int,
         )
 
         parser.add_argument(
             "--num_generations",
             required=False,
-            default=100,
+            default=10,
             type=int,
         )
 
@@ -84,7 +84,7 @@ class Config():
         parser.add_argument(
             "--max_voxels",
             required=False,
-            default=125,
+            default=64,
             type=int,
             help="",
         )
@@ -92,17 +92,17 @@ class Config():
         parser.add_argument(
             "--cube_face_size",
             required=False,
-            default=5,
+            default=4,
             type=int,
             help="",
         )
 
         parser.add_argument(
-            "--tfs",
+            "--voxel_types",
             required=False,
-            default="reg2",
+            default="withbone",
             type=str,
-            help="list of tfs config",
+            help="list of voxel_types config",
         )
 
         parser.add_argument(
@@ -164,6 +164,22 @@ class Config():
             default="",
             type=str,
             help="list of experiment_name",
+        )
+
+        parser.add_argument(
+            "--ustatic",
+            required=False,
+            default=1,
+            type=float,
+            help="static friction"
+        )
+
+        parser.add_argument(
+            "--udynamic",
+            required=False,
+            default=0.8,
+            type=float,
+            help="dynamic friction"
         )
 
         parser.add_argument(

@@ -78,18 +78,20 @@ class VXA:
         etree.SubElement(sub, "mtCONST").text = str(self.SimTime)
 
         # default FitnessFunction in voxcraft would be maximum x distance
+        # voxel size is 1cm
         fitness = etree.SubElement(simulator, "FitnessFunction")
-        # etree.SubElement(fitness, "mtVAR").text = "x"
+
+        # center-of-mass displacement in meters: x (just in case)
+        etree.SubElement(fitness, "mtVAR").text = "x"
 
         # center-of-mass displacement in meters: x^2 + y^2
-        # voxel size is 1cm
-        add = etree.SubElement(fitness, "mtADD")
-        mul = etree.SubElement(add, 'mtMUL')
-        etree.SubElement(mul, "mtVAR").text = 'x'
-        etree.SubElement(mul, "mtVAR").text = 'x'
-        mul2 = etree.SubElement(add, 'mtMUL')
-        etree.SubElement(mul2, "mtVAR").text = 'y'
-        etree.SubElement(mul2, "mtVAR").text = 'y'
+        # add = etree.SubElement(fitness, "mtADD")
+        # mul = etree.SubElement(add, 'mtMUL')
+        # etree.SubElement(mul, "mtVAR").text = 'x'
+        # etree.SubElement(mul, "mtVAR").text = 'x'
+        # mul2 = etree.SubElement(add, 'mtMUL')
+        # etree.SubElement(mul2, "mtVAR").text = 'y'
+        # etree.SubElement(mul2, "mtVAR").text = 'y'
 
         history = etree.SubElement(simulator, "RecordHistory")
         etree.SubElement(history, "RecordStepSize").text = str(self.RecordStepSize) #Capture image every 100 time steps
@@ -178,6 +180,7 @@ class VXA:
         etree.SubElement(mechanical, "uDynamic").text = str(uDynamic)
 
         return material_ID
+
 
     def write(self, filename='base.vxa'):
 

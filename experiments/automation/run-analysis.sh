@@ -29,6 +29,7 @@ papermill "experiments/analysis/analysis.ipynb" \
           -p study_name  "$study_name" \
           -p experiments "$experiments" \
           -p runs "$runs" \
+          -p voxel_types "$voxel_types" \
           -p generations "$generations" \
           -p final_gen "$final_gen" \
           -p out_path "$out_path"
@@ -37,7 +38,7 @@ papermill "experiments/analysis/analysis.ipynb" \
 python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --study_name "$study_name" \
   --experiments "$experiments" \
-  --tfs "$tfs" \
+  --voxel_types "$voxel_types" \
   --runs "$runs" \
   --generations "$generations" \
   --out_path "$out_path" \
@@ -47,7 +48,7 @@ python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
   --algorithm "$algorithm" \
   --plastic "$plastic"
 
-
+#
 #python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
 #  --study_name "$study_name" \
 #  --experiments "$experiments" \
@@ -59,7 +60,7 @@ python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
 #python3 ${docker_path}/experiments/analysis/family_tree.py \
 #  --study_name "$study_name" \
 #  --experiments "$experiments" \
-#  --tfs "$tfs" \
+#  --voxel_types "$voxel_types" \
 #  --runs "$runs" \
 #  --generations "$generations" \
 #  --out_path "$out_path" \

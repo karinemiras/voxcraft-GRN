@@ -16,21 +16,21 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="nov"
-study_name="defaultstudy2"
+study_name="soft"
+experiments="highfricbone,highfricNObone,lowfricbone,lowfricNObone"
 
-experiments="nov"
-experiments="defaultexperiment"
-
-# one tf definition per experiment
-tfs="reg2"
+# one voxel_types definition per experiment
+voxel_types="withbone,nobone,withbone,nobone"
 
 # one set of conditions per experiment
-env_conditions="none"
+env_conditions="none,none,none,none"
+
+ustatic="1,1,0.1,0.1"
+udynamic="0.8,0.8,0.1,0.1"
 
 ####
 
-nruns=1
+nruns=10
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -43,15 +43,15 @@ watchruns=$runs
 
 algorithm="basic_EA"
 
-fitness_metric="displacement"
+fitness_metric="novelty_weighted"
 
 plastic=0
 
 num_generations="100"
 
-population_size="100"
+population_size="50"
 
-offspring_size="100"
+offspring_size="50"
 
 # gens for box-plots, snapshots, videos (by default the last gen)
 #generations="1,$num_generations"
@@ -64,12 +64,12 @@ mutation_prob=0.9
 
 crossover_prob=1
 
-max_voxels=125
+max_voxels=64
 
-cube_face_size=5
+cube_face_size=4
 
 simulation_time=2
 
-run_simulation=0
+run_simulation=1
 
 ### PARAMS END ###

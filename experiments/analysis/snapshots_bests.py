@@ -13,6 +13,7 @@ sys.path.append(str(ROOT))
 from algorithms.EA_classes import Robot, GenerationSurvivor
 from utils.draw import draw_phenotype
 from utils.config import Config
+from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_COLORS, VOXEL_TYPES_NOBONE, VOXEL_TYPES_COLORS_NOBONE
 
 
 def main():
@@ -22,7 +23,7 @@ def main():
     experiments = args.experiments.split(",")
     runs = list(map(int, args.runs.split(",")))
     generations = list(map(int, args.generations.split(",")))
-    tfs = args.tfs.split(",")
+    voxel_types_list = args.voxel_types.split(",")
 
     # instantiates the algorithm class with original params to develop the phenotypes
     module_name = f"algorithms.{args.algorithm}"
@@ -31,12 +32,19 @@ def main():
     cls = getattr(module, class_name)
     EA = cls(args)
 
-    numberrobots = 100  # top-N per generation
+    numberrobots = 50  # top-N per generation
 
     for exp_idx, experiment_name in enumerate(experiments):
         print(experiment_name)
 
-        tf_for_exp = tfs[exp_idx]
+        voxel_types_for_exp = voxel_types_list[exp_idx]
+
+        if voxel_types_for_exp == 'withbone':
+            voxel_types = VOXEL_TYPES
+            voxel_types_colors = VOXEL_TYPES_COLORS
+        if voxel_types_for_exp == 'nobone':
+            voxel_types = VOXEL_TYPES_NOBONE
+            voxel_types_colors = VOXEL_TYPES_COLORS_NOBONE
 
         for run in runs:
             print(" run:", run)
@@ -88,9 +96,9 @@ def main():
                     for idx, (robot_row, surv_row) in enumerate(rows[:numberrobots]):
                         genome = robot_row.genome
 
-
-                        phenotype = EA.develop_phenotype(genome, tf_for_exp)
-                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, idx, round(surv_row.fitness, 4), gen_dir)
+                        phenotype = EA.develop_phenotype(genome, voxel_types_for_exp)
+                        draw_phenotype(phenotype, robot_row.robot_id, args.cube_face_size, idx,
+                                       round(surv_row.fitness, 4), gen_dir, voxel_types, voxel_types_colors)
 
 
 if __name__ == "__main__":

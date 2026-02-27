@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
-from algorithms.voxel_types import VOXEL_TYPES, TF_WEIGHTS
+from algorithms.voxel_types import VOXEL_TYPES, VOXEL_TYPES_NOBONE, TF_WEIGHTS, TF_WEIGHTS_NOBONE
 
 # a Gene Regulatory Network
 class GRN:
@@ -12,7 +12,7 @@ class GRN:
     diffusion_sites_qt = 6
 
     def __init__(self, promoter_threshold=0.95, max_voxels=27, cube_face_size=3,
-                  genotype=None, tfs='reg2', env_conditions=None, plastic=None):
+                  genotype=None, voxel_types='withbone', env_conditions=None, plastic=None):
 
         self.max_voxels = max_voxels
         self.genotype = genotype
@@ -38,13 +38,15 @@ class GRN:
         # NOTE: if u increase number of reg tfs without increasing voxels tf or geno size,
         # too many tiny robots are sampled
         self.structural_products = None
-        self.structural_products = VOXEL_TYPES
+        # number of regulatory tfs
+        self.regulatory_products = 2
 
-        if tfs == 'reg2':  # balanced, number of regulatory tfs similar to number of voxels tfs
-            # number of regulatory tfs
-            self.regulatory_products = 2
-        elif tfs == '':  
-            pass
+        if voxel_types == 'withbone':
+            self.structural_products = VOXEL_TYPES
+            self.tf_weights = TF_WEIGHTS
+        if voxel_types == 'nobone':
+            self.structural_products = VOXEL_TYPES_NOBONE
+            self.tf_weights = TF_WEIGHTS_NOBONE
 
         # structural_tfs use initial indexes (excludes voxel_type offphase
         # and regulatory tfs uses final (leftover) indexes
@@ -104,7 +106,7 @@ class GRN:
 
                     # converts tfs values into labels
                     # remember that structural_tfs use initial indexes and regulatory tfs uses final (leftover) indexes
-                    limits, total = self.build_tf_limits(self.structural_products,self.regulatory_products, TF_WEIGHTS)
+                    limits, total = self.build_tf_limits(self.structural_products,self.regulatory_products, self.tf_weights)
                     regulatory_transcription_factor_label = self.tf_value_to_label(regulatory_transcription_factor, limits)
                     transcription_factor_label = self.tf_value_to_label(transcription_factor, limits)
 
