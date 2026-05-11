@@ -40,6 +40,7 @@ class EA(Experiment):
         self.max_voxels = self.args.max_voxels
         self.voxel_types = self.args.voxel_types
         self.plastic = self.args.plastic
+        self.enforced_symmetry = self.args.enforced_symmetry
         self.env_conditions = self.args.env_conditions
         self.population_size = self.args.population_size
         self.offspring_size = self.args.offspring_size
@@ -66,11 +67,45 @@ class EA(Experiment):
             plastic=self.plastic,
         ).develop()
 
+        if self.enforced_symmetry:
+            phenotype = self.enforce_symmetry(phenotype)
+
         phenotype_materials = np.zeros(phenotype.shape, dtype=int)
         for index, value in np.ndenumerate(phenotype):
             phenotype_materials[index] = value.voxel_type if value != 0 else 0
 
         return phenotype_materials
+
+    def enforce_symmetry(self, phenotype):
+        y_size = self.cube_face_size
+        half_y = y_size // 2
+        first_half = range(half_y)
+        second_half = range(y_size - half_y, y_size)
+
+        first_half_voxels = sum(np.count_nonzero(phenotype[:, y, :]) for y in first_half)
+        second_half_voxels = sum(np.count_nonzero(phenotype[:, y, :]) for y in second_half)
+        source_y_range = second_half if second_half_voxels > first_half_voxels else first_half
+
+        # Use the Y half with most voxels as the source side, ignoring empty Y slices.
+        source_slices = [
+            phenotype[:, y, :].copy()
+            for y in source_y_range
+            if np.any(phenotype[:, y, :] != 0)
+        ]
+
+        # Mirror each source slice from the chosen side to the opposite Y side.
+        symmetric_phenotype = np.zeros_like(phenotype)
+        for offset, source_slice in enumerate(source_slices):
+            if source_y_range == second_half:
+                y = half_y + offset
+            else:
+                y = half_y - len(source_slices) + offset
+
+            mirror_y = y_size - 1 - y
+            symmetric_phenotype[:, y, :] = source_slice
+            symmetric_phenotype[:, mirror_y, :] = source_slice
+
+        return symmetric_phenotype
 
     def initialize_population(self, size, generation):
         individuals = []
@@ -239,12 +274,4 @@ if __name__ == "__main__":
     minutes = int((elapsed % 3600) // 60)
     seconds = elapsed % 60
     print(f"\n[RUN-TIME]  {hours}h {minutes}m {seconds:.1f}s")
-
-
-
-
-
-
-
-
 

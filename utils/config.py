@@ -94,7 +94,7 @@ class Config():
             required=False,
             default=4,
             type=int,
-            help="",
+            help="keep it even if bilateral symmetry is to be enforced",
         )
 
         parser.add_argument(
@@ -111,6 +111,14 @@ class Config():
             default=0,
             type=int,
             help="0 is not plastic, 1 is plastic",
+        )
+
+        parser.add_argument(
+            "--enforced_symmetry",
+            required=False,
+            default=0,
+            type=int,
+            help="0 disables enforced symmetry, 1 enables it",
         )
 
         parser.add_argument(
@@ -138,7 +146,7 @@ class Config():
         parser.add_argument(
             "--fitness_metric",
             required=False,
-            default="novelty", #displacement
+            default="displacement",
             type=str,
         )
 
@@ -169,16 +177,16 @@ class Config():
         parser.add_argument(
             "--ustatic",
             required=False,
-            default=1,
-            type=float,
+            default="1",
+            type=str,
             help="static friction"
         )
 
         parser.add_argument(
             "--udynamic",
             required=False,
-            default=0.8,
-            type=float,
+            default="0.8",
+            type=str,
             help="dynamic friction"
         )
 
@@ -204,6 +212,14 @@ class Config():
             default=1,
             type=int,
             help="If 0, runs optimizer without simulating robots, so behavioral measures are none."
+        )
+
+        parser.add_argument(
+            "--output_csv",
+            required=False,
+            default="",
+            type=str,
+            help="optional output csv path for analysis scripts",
         )
 
         args = parser.parse_args()

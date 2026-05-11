@@ -38,7 +38,7 @@ class CMAES(Experiment):
         self.docker_path = self.args.docker_path
         self.cube_face_size = self.args.cube_face_size
         self.max_voxels = self.args.max_voxels
-        self.tfs = self.args.tfs
+        self.voxel_types = self.args.voxel_types
         self.plastic = self.args.plastic
         self.env_conditions = self.args.env_conditions
 
@@ -51,12 +51,12 @@ class CMAES(Experiment):
         self.es = None
 
     # ---------- GRN dev (unchanged) ----------
-    def develop_phenotype(self, genome, tfs):
+    def develop_phenotype(self, genome, voxel_types):
         phenotype = GRN(
             promoter_threshold=self.PROMOTOR_THRESHOLD,
             max_voxels=self.max_voxels,
             cube_face_size=self.cube_face_size,
-            tfs=tfs,
+            voxel_types=voxel_types,
             genotype=genome,
             env_conditions=self.env_conditions,
             plastic=self.plastic,
@@ -134,7 +134,7 @@ class CMAES(Experiment):
 
             # Develop + metrics + prepare sim (same pipeline)
             for ind in individuals:
-                ind.phenotype = self.develop_phenotype(ind.genome, self.tfs)
+                ind.phenotype = self.develop_phenotype(ind.genome, self.voxel_types)
                 genopheno_abs_metrics(ind)
 
                 if self.args.run_simulation:

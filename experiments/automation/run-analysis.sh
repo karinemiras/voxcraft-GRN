@@ -14,58 +14,46 @@ set -a
 source "$params_file"
 set +a
 
+mapfile -t config_param_names < <(
+  python3 -c 'import ast
+tree = ast.parse(open("utils/config.py").read())
+for node in ast.walk(tree):
+    if isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "add_argument":
+        for arg in node.args:
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value.startswith("--"):
+                print(arg.value[2:].replace("-", "_"))
+                break'
+)
+
+common_args=()
+papermill_args=()
+for param_name in "${config_param_names[@]}"; do
+  param_value="${!param_name-}"
+  if [[ -n "$param_value" ]]; then
+    common_args+=(--"$param_name" "$param_value")
+    papermill_args+=(-p "$param_name" "$param_value")
+  fi
+done
+
+
+python3 ${docker_path}/experiments/analysis/symmetry_metrics_csv.py \
+  "${common_args[@]}" \
+  --output_csv "${out_path}/${study_name}/analysis/additional_metrics.csv"
+
 
 python3 ${docker_path}/experiments/analysis/consolidate.py \
- --study_name "$study_name" \
- --experiments "$experiments" \
- --runs "$runs" \
- --out_path "$out_path" \
- --final_gen "$final_gen";
+  "${common_args[@]}"
 
 
 
 papermill "experiments/analysis/analysis.ipynb" \
           "experiments/analysis/analysis-executed.ipynb" \
-          -p study_name  "$study_name" \
-          -p experiments "$experiments" \
-          -p runs "$runs" \
-          -p voxel_types "$voxel_types" \
-          -p generations "$generations" \
-          -p final_gen "$final_gen" \
-          -p out_path "$out_path"
+          "${papermill_args[@]}"
 
 
 python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
-  --study_name "$study_name" \
-  --experiments "$experiments" \
-  --voxel_types "$voxel_types" \
-  --runs "$runs" \
-  --generations "$generations" \
-  --out_path "$out_path" \
-  --max_voxels "$max_voxels" \
-  --cube_face_size "$cube_face_size" \
-  --env_conditions "$env_conditions" \
-  --algorithm "$algorithm" \
-  --plastic "$plastic"
-
-#
-#python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
-#  --study_name "$study_name" \
-#  --experiments "$experiments" \
-#  --runs "$runs" \
-#  --generations "$generations" \
-#  --out_path "$out_path"
+  "${common_args[@]}"
 
 
-#python3 ${docker_path}/experiments/analysis/family_tree.py \
-#  --study_name "$study_name" \
-#  --experiments "$experiments" \
-#  --voxel_types "$voxel_types" \
-#  --runs "$runs" \
-#  --generations "$generations" \
-#  --out_path "$out_path" \
-#  --max_voxels "$max_voxels" \
-#  --cube_face_size "$cube_face_size" \
-#  --env_conditions "$env_conditions" \
-#  --algorithm "$algorithm" \
-#  --plastic "$plastic"
+python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
+  "${common_args[@]}"

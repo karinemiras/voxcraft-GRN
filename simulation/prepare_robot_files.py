@@ -25,6 +25,8 @@ def trim_phenotype_materials(phenotype):
 def prepare_robot_files(individual, args):
 
     phenotype = individual.phenotype
+    ustatic = float(args.ustatic)
+    udynamic = float(args.udynamic)
 
     out_path = f"{args.out_path}/{args.study_name}/{args.experiment_name}/run_{args.run}/robots/robot{individual.id}"
     os.makedirs(out_path, exist_ok=True)
@@ -86,36 +88,36 @@ def prepare_robot_files(individual, args):
     if args.voxel_types == 'withbone':
         mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['bone'],
                                 E=1e8, RHO=1e4,
-                                uStatic=args.ustatic, uDynamic=args.udynamic)  # stiff, passive
+                                uStatic=ustatic, uDynamic=udynamic)  # stiff, passive
 
         mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['fat'],
                                 E=7e5, RHO=1.2e4,
-                                uStatic=args.ustatic, uDynamic=args.udynamic)  # soft, passive
+                                uStatic=ustatic, uDynamic=udynamic)  # soft, passive
 
         mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['phase_muscle'],
                                 E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase,
-                                uStatic=args.ustatic, uDynamic=args.udynamic) # medium-soft, active
+                                uStatic=ustatic, uDynamic=udynamic) # medium-soft, active
 
         mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS['offphase_muscle'],
                                 E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase,
-                                uStatic=args.ustatic, uDynamic=args.udynamic)  # medium-soft, active
+                                uStatic=ustatic, uDynamic=udynamic)  # medium-soft, active
 
     if args.voxel_types == 'nobone':
         mat1 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['fat'],
                                 E=7e5, RHO=1.2e4,
-                                uStatic=args.ustatic, uDynamic=args.udynamic)  # soft, passive
+                                uStatic=ustatic, uDynamic=udynamic)  # soft, passive
 
         mat2 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['fat2'],
                                 E=7e5, RHO=1.2e4,
-                                uStatic=args.ustatic, uDynamic=args.udynamic)  # soft, passive
+                                uStatic=ustatic, uDynamic=udynamic)  # soft, passive
 
         mat3 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['phase_muscle'],
                                 E=1e6, RHO=1e4, CTE=CTE, TempPhase=in_phase,
-                                uStatic=args.ustatic, uDynamic=args.udynamic) # medium-soft, active
+                                uStatic=ustatic, uDynamic=udynamic) # medium-soft, active
 
         mat4 = vxa.add_material(RGBA=VOXEL_TYPES_COLORS_NOBONE['offphase_muscle'],
                                 E=1e6, RHO=1e4, CTE=CTE, TempPhase=off_phase,
-                                uStatic=args.ustatic, uDynamic=args.udynamic)  # medium-soft, active
+                                uStatic=ustatic, uDynamic=udynamic)  # medium-soft, active
 
     # Write out the vxa (robot) to data/ directory
     vxa.write(f"{out_path}/base.vxa")
@@ -144,4 +146,3 @@ def prepare_robot_files(individual, args):
 
     # vxd file can have any name, but there must be only one per folder
     # vxa file must be called base.vxa
-

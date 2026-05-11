@@ -17,6 +17,18 @@ mkdir -p "${out_path}/${study_name}" "${out_path}/${study_name}/analysis" "$reco
 : "${WAIT_FOR_ALL:=1}"
 : "${delay_setup_script:=10}"
 : "${docker_path:=.}"
+: "${enforced_symmetry:=0}"
+: "${python_cmd:=}"
+
+if [[ -z "${python_cmd}" ]]; then
+  if [[ -x "${docker_path}/ven/bin/python" ]]; then
+    python_cmd="${docker_path}/ven/bin/python"
+  elif [[ -x "${docker_path}/venv/bin/python" ]]; then
+    python_cmd="${docker_path}/venv/bin/python"
+  else
+    python_cmd="python3"
+  fi
+fi
 
 # ---------- helpers ----------
 timestamp() { date +"%Y-%m-%d_%H-%M-%S"; }
@@ -112,14 +124,14 @@ if [[ ${#EXP_LIST[@]} -ne ${#voxel_types_LIST[@]} || ${#EXP_LIST[@]} -ne ${#COND
 fi
 
 # ---------- launch ----------
-for idx in "${!EXP_LIST[@]}"; do
-  exp="${EXP_LIST[$idx]}"
-  voxel_type="${voxel_types_LIST[$idx]}"
-  ustatic="${ustatic_LIST[$idx]}"
-  udynamic="${udynamic_LIST[$idx]}"
-  cond="${COND_LIST[$idx]}"
+for run in "${RUN_LIST[@]}"; do
+  for idx in "${!EXP_LIST[@]}"; do
+    exp="${EXP_LIST[$idx]}"
+    voxel_type="${voxel_types_LIST[$idx]}"
+    ustatic="${ustatic_LIST[$idx]}"
+    udynamic="${udynamic_LIST[$idx]}"
+    cond="${COND_LIST[$idx]}"
 
-  for run in "${RUN_LIST[@]}"; do
     logfile="${out_path}/${study_name}/${exp}_${run}.log"
     session="${study_name}_${exp}_r${run}"
     session=${session//[^a-zA-Z0-9_-]/-}
@@ -162,7 +174,7 @@ for idx in "${!EXP_LIST[@]}"; do
     handle_sentinel_if_any || true
 
     cmd=(
-      python3 -u "${docker_path}/algorithms/${algorithm}.py"
+      "${python_cmd}" -u "${docker_path}/algorithms/${algorithm}.py"
       --out_path "${out_path}"
       --experiment_name "${exp}"
       --env_conditions "${cond}"
@@ -175,6 +187,7 @@ for idx in "${!EXP_LIST[@]}"; do
       --offspring_size "${offspring_size}"
       --simulation_time "${simulation_time}"
       --plastic "${plastic}"
+      --enforced_symmetry "${enforced_symmetry}"
       --docker_path "${docker_path}"
       --crossover_prob "${crossover_prob}"
       --mutation_prob "${mutation_prob}"
@@ -216,4 +229,3 @@ if [[ "${WAIT_FOR_ALL}" -eq 1 ]]; then
   echo ">> All runs finished. Starting analysis..."
   ./experiments/automation/run-analysis.sh "$params_file"
 fi
-

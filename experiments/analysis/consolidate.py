@@ -14,6 +14,16 @@ from utils.config import Config
 from utils.metrics import METRICS_ABS, METRICS_REL
 
 
+ADDITIONAL_METRICS = [
+    "x_symmetry",
+    "y_symmetry",
+    "z_symmetry",
+    "x_type_symmetry",
+    "y_type_symmetry",
+    "z_type_symmetry",
+]
+
+
 class Analysis:
     def __init__(self, args):
         self.study_name = args.study_name
@@ -24,6 +34,7 @@ class Analysis:
 
         # which columns to summarize
         self.metrics = METRICS_ABS + METRICS_REL
+        self.additional_metrics = ADDITIONAL_METRICS
 
     def _resolve_db_path(self, base_path: str):
         if os.path.isdir(base_path):
@@ -46,8 +57,6 @@ class Analysis:
         os.makedirs(f"{self.path}/analysis", exist_ok=True)
 
         frames = []
-        robots_frames = []
-
         for experiment in self.experiments:
             for run in self.runs:
                 # user provided a directory path earlier; support both cases
@@ -75,22 +84,10 @@ class Analysis:
 
                     df = pd.read_sql(stmt, conn)
 
-                    # full robots table
-                    robots_stmt = select(
-                        Robot.robot_id,
-                        Robot.born_generation,
-                        Robot.num_voxels,
-                    )
-                    df_robots = pd.read_sql(robots_stmt, conn)
-
                 # tag with experiment/run
                 df["experiment"] = experiment
                 df["run"] = run
                 frames.append(df)
-
-                df_robots["experiment"] = experiment
-                df_robots["run"] = run
-                robots_frames.append(df_robots)
 
         if not frames:
             print("[warn] no data found; nothing to consolidate.")
@@ -102,18 +99,29 @@ class Analysis:
         #all_df.replace([-1000, -np.inf], np.nan, inplace=True)
         all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-        all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
-
-        # === consolidated robots ==============================================
-        if robots_frames:
-            robots_all = pd.concat(robots_frames, ignore_index=True)
-            robots_all.to_csv(f"{self.path}/analysis/all_robots.csv", index=False)
+        additional_metrics_path = f"{self.path}/analysis/additional_metrics.csv"
+        metrics_for_summary = list(self.metrics)
+        if os.path.exists(additional_metrics_path):
+            additional_df = pd.read_csv(additional_metrics_path)
+            additional_df = additional_df.rename(columns={"experiment_name": "experiment"})
+            join_cols = ["experiment", "run", "robot_id"]
+            additional_cols = join_cols + [
+                metric for metric in self.additional_metrics
+                if metric in additional_df.columns
+            ]
+            all_df = all_df.merge(additional_df[additional_cols], on=join_cols, how="inner")
+            metrics_for_summary.extend([
+                metric for metric in self.additional_metrics
+                if metric in all_df.columns
+            ])
         else:
-            print("[warn] no robots rows found.")
+            print(f"[warn] additional metrics not found: {additional_metrics_path}")
+
+        all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
 
         # === inner: within runs per generation (mean & max) ====================
         agg_dict = {}
-        for m in self.metrics:
+        for m in metrics_for_summary:
             agg_dict[f"{m}_mean"] = (m, "mean")
             agg_dict[f"{m}_max"] = (m, "max")
 
@@ -127,7 +135,7 @@ class Analysis:
         agg_spec = {}
 
         # summarize MEANS and max for all metrics
-        for m in self.metrics:
+        for m in metrics_for_summary:
             col = f"{m}_mean"
             agg_spec[f"{col}_median"] = (col, "median")
             agg_spec[f"{col}_q25"] = (col, lambda x: x.dropna().quantile(0.25))

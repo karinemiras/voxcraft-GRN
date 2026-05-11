@@ -16,7 +16,7 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="softness"
+study_name="symmetricsoftness"
 experiments="highfricbone,highfricNObone,lowfricbone,lowfricNObone"
 
 # one voxel_types definition per experiment
@@ -47,7 +47,7 @@ fitness_metric="displacement"
 
 plastic=0
 
-enforced_symmetry=0
+enforced_symmetry=1
 
 num_generations="30"
 
