@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import numpy as np
 from pathlib import Path
 import shutil
@@ -41,6 +42,8 @@ class EA(Experiment):
         self.voxel_types = self.args.voxel_types
         self.plastic = self.args.plastic
         self.enforced_symmetry = self.args.enforced_symmetry
+        self.symmetry_axis = getattr(self.args, "symmetry_axis", "y")
+        self.symmetry_mirror_phase = getattr(self.args, "symmetry_mirror_phase", "same")
         self.env_conditions = self.args.env_conditions
         self.population_size = self.args.population_size
         self.offspring_size = self.args.offspring_size
@@ -77,35 +80,81 @@ class EA(Experiment):
         return phenotype_materials
 
     def enforce_symmetry(self, phenotype):
-        y_size = self.cube_face_size
-        half_y = y_size // 2
-        first_half = range(half_y)
-        second_half = range(y_size - half_y, y_size)
+        axis_index = {"x": 0, "y": 1, "z": 2}[str(self.symmetry_axis).split(",")[0].lower()]
+        axis_size = self.cube_face_size
+        half_axis = axis_size // 2
+        first_half = range(half_axis)
+        second_half = range(axis_size - half_axis, axis_size)
 
-        first_half_voxels = sum(np.count_nonzero(phenotype[:, y, :]) for y in first_half)
-        second_half_voxels = sum(np.count_nonzero(phenotype[:, y, :]) for y in second_half)
-        source_y_range = second_half if second_half_voxels > first_half_voxels else first_half
+        first_half_voxels = sum(
+            np.count_nonzero(self.get_symmetry_slice(phenotype, axis_index, axis_pos))
+            for axis_pos in first_half
+        )
+        second_half_voxels = sum(
+            np.count_nonzero(self.get_symmetry_slice(phenotype, axis_index, axis_pos))
+            for axis_pos in second_half
+        )
 
-        # Use the Y half with most voxels as the source side, ignoring empty Y slices.
+        if self.enforced_symmetry == 2:
+            # Prefer mirroring the second half. If it is empty, fall back to the first half.
+            source_axis_range = second_half if second_half_voxels > 0 else first_half
+        else:
+            # Mode 1: use whichever half contains more voxels.
+            source_axis_range = second_half if second_half_voxels > first_half_voxels else first_half
+
+        source_is_second_half = source_axis_range == second_half
+
+        # Build the source side from non-empty slices only, so the mirrored body stays compact.
         source_slices = [
-            phenotype[:, y, :].copy()
-            for y in source_y_range
-            if np.any(phenotype[:, y, :] != 0)
+            self.get_symmetry_slice(phenotype, axis_index, axis_pos).copy()
+            for axis_pos in source_axis_range
+            if np.any(self.get_symmetry_slice(phenotype, axis_index, axis_pos) != 0)
         ]
 
-        # Mirror each source slice from the chosen side to the opposite Y side.
+        # Mirror each source slice from the chosen side to the opposite side of the axis.
         symmetric_phenotype = np.zeros_like(phenotype)
         for offset, source_slice in enumerate(source_slices):
-            if source_y_range == second_half:
-                y = half_y + offset
+            if source_is_second_half:
+                axis_pos = half_axis + offset
             else:
-                y = half_y - len(source_slices) + offset
+                axis_pos = half_axis - len(source_slices) + offset
 
-            mirror_y = y_size - 1 - y
-            symmetric_phenotype[:, y, :] = source_slice
-            symmetric_phenotype[:, mirror_y, :] = source_slice
+            mirror_axis_pos = axis_size - 1 - axis_pos
+            self.set_symmetry_slice(symmetric_phenotype, axis_index, axis_pos, source_slice)
+            self.set_symmetry_slice(
+                symmetric_phenotype,
+                axis_index,
+                mirror_axis_pos,
+                self.mirror_phase_slice(source_slice),
+            )
 
         return symmetric_phenotype
+
+    def get_symmetry_slice(self, phenotype, axis_index, axis_pos):
+        slicer = [slice(None), slice(None), slice(None)]
+        slicer[axis_index] = axis_pos
+        return phenotype[tuple(slicer)]
+
+    def set_symmetry_slice(self, phenotype, axis_index, axis_pos, source_slice):
+        slicer = [slice(None), slice(None), slice(None)]
+        slicer[axis_index] = axis_pos
+        phenotype[tuple(slicer)] = source_slice
+
+    def mirror_phase_slice(self, source_slice):
+        if str(self.symmetry_mirror_phase).split(",")[0].lower() != "offphase":
+            return source_slice
+
+        mirrored_slice = source_slice.copy()
+        for index, value in np.ndenumerate(source_slice):
+            if value != 0:
+                mirrored_value = copy.copy(value)
+                if mirrored_value.voxel_type == 3:
+                    mirrored_value.voxel_type = 4
+                elif mirrored_value.voxel_type == 4:
+                    mirrored_value.voxel_type = 3
+                mirrored_slice[index] = mirrored_value
+
+        return mirrored_slice
 
     def initialize_population(self, size, generation):
         individuals = []
@@ -274,4 +323,3 @@ if __name__ == "__main__":
     minutes = int((elapsed % 3600) // 60)
     seconds = elapsed % 60
     print(f"\n[RUN-TIME]  {hours}h {minutes}m {seconds:.1f}s")
-

@@ -118,7 +118,23 @@ class Config():
             required=False,
             default=0,
             type=int,
-            help="0 disables enforced symmetry, 1 enables it",
+            help="0 disables enforced symmetry, 1 mirrors the fuller half, 2 mirrors the right half unless it is empty",
+        )
+
+        parser.add_argument(
+            "--symmetry_axis",
+            required=False,
+            default="y",
+            type=str,
+            help="axis used by enforced symmetry: x, y, or z",
+        )
+
+        parser.add_argument(
+            "--symmetry_mirror_phase",
+            required=False,
+            default="same",
+            type=str,
+            help="same keeps mirrored actuator phase, offphase swaps phase and offphase muscles on the mirrored side",
         )
 
         parser.add_argument(

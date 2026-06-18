@@ -24,6 +24,8 @@ def main():
     runs = list(map(int, args.runs.split(",")))
     generations = list(map(int, args.generations.split(",")))
     voxel_types_list = args.voxel_types.split(",")
+    symmetry_axis_list = args.symmetry_axis.split(",")
+    symmetry_mirror_phase_list = args.symmetry_mirror_phase.split(",")
 
     # instantiates the algorithm class with original params to develop the phenotypes
     module_name = f"algorithms.{args.algorithm}"
@@ -38,6 +40,12 @@ def main():
         print(experiment_name)
 
         voxel_types_for_exp = voxel_types_list[exp_idx]
+        EA.symmetry_axis = symmetry_axis_list[exp_idx] if len(symmetry_axis_list) > 1 else symmetry_axis_list[0]
+        EA.symmetry_mirror_phase = (
+            symmetry_mirror_phase_list[exp_idx]
+            if len(symmetry_mirror_phase_list) > 1
+            else symmetry_mirror_phase_list[0]
+        )
 
         if voxel_types_for_exp == 'withbone':
             voxel_types = VOXEL_TYPES

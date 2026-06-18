@@ -16,17 +16,18 @@ docker_path="/workspace"
 # exps order is the same for all three vars
 # exps names should not be fully contained in each other
 
-study_name="symmetricsoftness"
-experiments="highfricbone,highfricNObone,lowfricbone,lowfricNObone"
+study_name="ysymmetricsoftness"
+#experiments="highfricbone,highfricNObone,lowfricbone,lowfricNObone"
+experiments="highfricbone,lowfricbone"
 
 # one voxel_types definition per experiment
-voxel_types="withbone,nobone,withbone,nobone"
+voxel_types="withbone,withbone"
 
 # one set of conditions per experiment
-env_conditions="none,none,none,none"
+env_conditions="none,none"
 
-ustatic="1,1,0.1,0.1"
-udynamic="0.8,0.8,0.1,0.1"
+ustatic="1,0.1"
+udynamic="0.8,0.1"
 
 ####
 
@@ -37,7 +38,7 @@ for i in $(seq 1 $nruns);
 do
   runs=("${runs}${i},")
 done
-runs=${runs::-1}
+runs=${runs%,}
 
 watchruns=$runs
 
@@ -47,16 +48,18 @@ fitness_metric="displacement"
 
 plastic=0
 
-enforced_symmetry=1
+enforced_symmetry=2
+symmetry_axis="y"
+symmetry_mirror_phase="same"
 
-num_generations="30"
+num_generations="60"
 
 population_size="50"
 
 offspring_size="30"
 
 # gens for box-plots, snapshots, videos (by default the last gen)
-generations="1,$num_generations"
+generations="$num_generations"
 
 # max gen to filter line-plots  (by default the last gen)
 final_gen="$num_generations"

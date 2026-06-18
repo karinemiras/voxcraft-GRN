@@ -1,10 +1,12 @@
 # This script is localized in the server, and loads server data because a dir is mounted in ripper_data_mount,
 # but it runs voxcraft-viz locally on MAC.
 # mounted path: /Users/karinemiras/Documents/ripper_data_mount/voxcraft/experiments/analysis/watch_robots_viz.py
+# runs on mac: python3 experiments/analysis/watch_robots_viz.py
 
 import os
 import sys
 import subprocess
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent  # repo root: .../ripper_data_mount/voxcraft
@@ -13,32 +15,50 @@ sys.path.append(str(ROOT))
 from utils.config import Config
 
 VIZPATH="/Users/karinemiras/projects/voxcraft-viz/build"
-PARAMS_EXP = "locomotion.sh"
-VIZ_SECONDS=10
+PARAMS_EXP = "locomotion_ysymmetry.sh"
+VIZ_SECONDS=7
 NUMBESTS=1
 
 def load_sh_params(path: Path) -> dict:
+    keys = [
+        "LOCAL_BUILD_DIR",
+        "VOXCRAFT_VIZ",
+        "VIZ_WAIT",
+        "study_name",
+        "experiments",
+        "runs",
+        "generations",
+        "out_path",
+    ]
+    probe = "; ".join([f"printf '%s\\n' '{key}='\"\\\"${key}\\\"\"" for key in keys])
+    cmd = f"set -a; source '{path}'; set +a; {probe}"
+    result = subprocess.run(
+        ["bash", "-lc", cmd],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
     params = {}
-    text = path.read_text()
-
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        if line.startswith("export "):
-            line = line[len("export ") :].strip()
-
+    for line in result.stdout.splitlines():
         if "=" not in line:
             continue
-
-        k, v = line.split("=", 1)
-        k = k.strip()
-        v = v.strip().strip('"').strip("'")
-        if k:
-            params[k] = v
-
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        params[key] = value
     return params
+
+
+def get_param(args, params, key, default=""):
+    value = getattr(args, key, None)
+    if value not in (None, "", []):
+        return value
+    param_value = params.get(key, "")
+    if param_value not in (None, "", []):
+        return param_value
+    return default
 
 
 def parse_fit_and_id(filename: str):
@@ -92,8 +112,8 @@ def main():
 
     params = load_sh_params(params_path)
 
-    local_build_dir = Path(params.get("LOCAL_BUILD_DIR", VIZPATH))
-    voxcraft_viz = Path(params.get("VOXCRAFT_VIZ", str(local_build_dir / "voxcraft-viz")))
+    local_build_dir = Path(get_param(args, params, "LOCAL_BUILD_DIR", VIZPATH))
+    voxcraft_viz = Path(get_param(args, params, "VOXCRAFT_VIZ", str(local_build_dir / "voxcraft-viz")))
 
     if not voxcraft_viz.exists():
         raise FileNotFoundError(
@@ -101,22 +121,15 @@ def main():
             f"Set VOXCRAFT_VIZ=... in {params_path} or update LOCAL_BUILD_DIR."
         )
 
-    # ----------------------------------------------------------------------
-    # ORIGINAL LOGIC (DO NOT REMOVE)
-    # study = args.study_name
-    # experiments_name = [e for e in args.experiments.split(",") if e.strip()]
-    # runs = [int(r) for r in args.runs.split(",") if r.strip()]
-    # generations = [int(g) for g in args.generations.split(",") if g.strip()]
-    # out_path = args.out_path
-    # ----------------------------------------------------------------------
+    study = params.get("study_name") or getattr(args, "study_name", "defaultstudy")
+    experiments_raw = params.get("experiments") or getattr(args, "experiments", "")
+    runs_raw = params.get("runs") or getattr(args, "runs", "")
+    generations_raw = params.get("generations") or getattr(args, "generations", "")
+    out_path = params.get("out_path") or getattr(args, "out_path", "/working_data")
 
-    # --- your CURRENT TEST VALUES (kept exactly as requested) ---------------
-    study = "voxlocnew"
-    experiments_name = ["crosspropxyv4s25"]
-    runs = [1,2,3,4,5,6,7,8]
-    generations = [50]
-    out_path = args.out_path  # likely "/working_data"
-    # -----------------------------------------------------------------------
+    experiments_name = ['lowfricbone'] #[e for e in str(experiments_raw).split(",") if e.strip()]
+    runs =  [25,26,27,28,29,20]#[int(r) for r in str(runs_raw).split(",") if r.strip()]
+    generations = [int(g) for g in str(generations_raw).split(",") if g.strip()]
 
     bests = int(getattr(args, "bests", NUMBESTS))
 
@@ -136,7 +149,7 @@ def main():
     print("Top bests:", bests)
     print("voxcraft-viz:", voxcraft_viz)
 
-    wait = bool(int(params.get("VIZ_WAIT", "0")))
+    wait = bool(int(get_param(args, params, "VIZ_WAIT", "0")))
 
     for gen in generations:
         for experiment_name in experiments_name:

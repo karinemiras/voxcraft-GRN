@@ -35,25 +35,23 @@ for param_name in "${config_param_names[@]}"; do
   fi
 done
 
-
 python3 ${docker_path}/experiments/analysis/symmetry_metrics_csv.py \
-  "${common_args[@]}" \
-  --output_csv "${out_path}/${study_name}/analysis/additional_metrics.csv"
-
+ "${common_args[@]}" \
+ --output_csv "${out_path}/${study_name}/analysis/additional_metrics.csv"
 
 python3 ${docker_path}/experiments/analysis/consolidate.py \
   "${common_args[@]}"
 
-
-
-papermill "experiments/analysis/analysis.ipynb" \
+ papermill "experiments/analysis/analysis.ipynb" \
           "experiments/analysis/analysis-executed.ipynb" \
           "${papermill_args[@]}"
 
-
 python3 ${docker_path}/experiments/analysis/snapshots_bests.py \
-  "${common_args[@]}"
-
+ "${common_args[@]}"
 
 python3 ${docker_path}/experiments/analysis/bests_snap_draw.py \
-  "${common_args[@]}"
+ "${common_args[@]}"
+
+# papermill "experiments/analysis/analysis_inter.ipynb" \
+#           "experiments/analysis/analysis_inter-executed.ipynb" \
+#           "${papermill_args[@]}"

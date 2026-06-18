@@ -30,6 +30,8 @@ def build_algorithm(args):
             "--plastic", str(args.plastic),
             "--algorithm", args.algorithm,
             "--enforced_symmetry", str(args.enforced_symmetry),
+            "--symmetry_axis", args.symmetry_axis,
+            "--symmetry_mirror_phase", args.symmetry_mirror_phase,
         ]
         return cls(args)
     finally:
@@ -67,6 +69,8 @@ def main():
     args = Config()._get_params()
     experiments = args.experiments.split(",")
     voxel_types_list = args.voxel_types.split(",")
+    symmetry_axis_list = args.symmetry_axis.split(",")
+    symmetry_mirror_phase_list = args.symmetry_mirror_phase.split(",")
     runs = [int(run) for run in args.runs.split(",")]
     ea = build_algorithm(args)
 
@@ -96,6 +100,12 @@ def main():
 
         for exp_idx, experiment_name in enumerate(experiments):
             voxel_types = voxel_types_list[exp_idx]
+            ea.symmetry_axis = symmetry_axis_list[exp_idx] if len(symmetry_axis_list) > 1 else symmetry_axis_list[0]
+            ea.symmetry_mirror_phase = (
+                symmetry_mirror_phase_list[exp_idx]
+                if len(symmetry_mirror_phase_list) > 1
+                else symmetry_mirror_phase_list[0]
+            )
             print(f"Measuring symmetry for {experiment_name}...")
 
             for run in runs:
@@ -127,8 +137,6 @@ def main():
                             "num_voxels": int((phenotype != 0).sum()),
                             **metrics,
                         })
-                        if count % 500 == 0:
-                            print(f"    measured {count} robots")
                     print(f"    measured {count} robots")
                 finally:
                     conn.close()

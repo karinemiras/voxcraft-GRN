@@ -18,6 +18,8 @@ mkdir -p "${out_path}/${study_name}" "${out_path}/${study_name}/analysis" "$reco
 : "${delay_setup_script:=10}"
 : "${docker_path:=.}"
 : "${enforced_symmetry:=0}"
+: "${symmetry_axis:=y}"
+: "${symmetry_mirror_phase:=same}"
 : "${python_cmd:=}"
 
 if [[ -z "${python_cmd}" ]]; then
@@ -116,10 +118,22 @@ IFS=',' read -r -a voxel_types_LIST   <<< "${voxel_types}"
 IFS=',' read -r -a ustatic_LIST   <<< "${ustatic}"
 IFS=',' read -r -a udynamic_LIST   <<< "${udynamic}"
 IFS=',' read -r -a COND_LIST <<< "${env_conditions}"
+IFS=',' read -r -a SYMMETRY_AXIS_LIST <<< "${symmetry_axis}"
+IFS=',' read -r -a SYMMETRY_MIRROR_PHASE_LIST <<< "${symmetry_mirror_phase}"
 IFS=',' read -r -a RUN_LIST  <<< "${runs}"
 
 if [[ ${#EXP_LIST[@]} -ne ${#voxel_types_LIST[@]} || ${#EXP_LIST[@]} -ne ${#COND_LIST[@]} ]]; then
   echo "Error: experiments, voxel_types, env_conditions must have same length."
+  exit 1
+fi
+
+if [[ ${#SYMMETRY_AXIS_LIST[@]} -ne 1 && ${#SYMMETRY_AXIS_LIST[@]} -ne ${#EXP_LIST[@]} ]]; then
+  echo "Error: symmetry_axis must have either one value or one value per experiment."
+  exit 1
+fi
+
+if [[ ${#SYMMETRY_MIRROR_PHASE_LIST[@]} -ne 1 && ${#SYMMETRY_MIRROR_PHASE_LIST[@]} -ne ${#EXP_LIST[@]} ]]; then
+  echo "Error: symmetry_mirror_phase must have either one value or one value per experiment."
   exit 1
 fi
 
@@ -131,6 +145,8 @@ for run in "${RUN_LIST[@]}"; do
     ustatic="${ustatic_LIST[$idx]}"
     udynamic="${udynamic_LIST[$idx]}"
     cond="${COND_LIST[$idx]}"
+    symmetry_axis_for_exp="${SYMMETRY_AXIS_LIST[$idx]:-${SYMMETRY_AXIS_LIST[0]}}"
+    symmetry_mirror_phase_for_exp="${SYMMETRY_MIRROR_PHASE_LIST[$idx]:-${SYMMETRY_MIRROR_PHASE_LIST[0]}}"
 
     logfile="${out_path}/${study_name}/${exp}_${run}.log"
     session="${study_name}_${exp}_r${run}"
@@ -188,6 +204,8 @@ for run in "${RUN_LIST[@]}"; do
       --simulation_time "${simulation_time}"
       --plastic "${plastic}"
       --enforced_symmetry "${enforced_symmetry}"
+      --symmetry_axis "${symmetry_axis_for_exp}"
+      --symmetry_mirror_phase "${symmetry_mirror_phase_for_exp}"
       --docker_path "${docker_path}"
       --crossover_prob "${crossover_prob}"
       --mutation_prob "${mutation_prob}"
