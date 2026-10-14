@@ -13,25 +13,24 @@ docker_path="/workspace"
 # DO NOT use underline ( _ ) in the study and experiments names
 # delimiter of three vars below is coma. example:
 #experiments="exp1,epx2"
-# exps order is the same for all three vars
+# exps order is the same for all per-experiment vars
 # exps names should not be fully contained in each other
 
-study_name="ysymmetricsoftness"
-#experiments="highfricbone,highfricNObone,lowfricbone,lowfricNObone"
-experiments="highfricbone,lowfricbone"
+study_name="symmetricsoftness"
+experiments="setup1"
 
 # one voxel_types definition per experiment
-voxel_types="withbone,withbone"
+voxel_types="withbone"
 
 # one set of conditions per experiment
-env_conditions="none,none"
+env_conditions="none"
 
-ustatic="1,0.1"
-udynamic="0.8,0.1"
+ustatic="1"
+udynamic="0.8"
 
 ####
 
-nruns=30
+nruns=10
 
 runs=""
 for i in $(seq 1 $nruns);
@@ -48,11 +47,11 @@ fitness_metric="displacement"
 
 plastic=0
 
-enforced_symmetry=2
+enforced_symmetry=1
 symmetry_axis="y"
-symmetry_mirror_phase="same"
+symmetry_mirror_phase="offphase"
 
-num_generations="60"
+num_generations="50"
 
 population_size="50"
 

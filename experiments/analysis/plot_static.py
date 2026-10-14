@@ -67,8 +67,7 @@ measures = {
     'width': ['Width', 0, 1],
     'height': ['Height', 0, 1],
     'coverage': ['Coverage', 0, 1],
-    'proportion': ['Proportion', 0, 1],
-    'symmetry': ['Symmetry', 0, 1]}
+    'proportion': ['Proportion', 0, 1]}
 
 
 def plots():

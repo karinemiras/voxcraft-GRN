@@ -19,7 +19,7 @@ class Config():
             required=False,
             default="/workspace",
             type=str,
-            help="path for docker"
+            help="path for docker, so that the bash scripts know where to read other scripts from"
         )
 
         parser.add_argument(
@@ -228,14 +228,6 @@ class Config():
             default=1,
             type=int,
             help="If 0, runs optimizer without simulating robots, so behavioral measures are none."
-        )
-
-        parser.add_argument(
-            "--output_csv",
-            required=False,
-            default="",
-            type=str,
-            help="optional output csv path for analysis scripts",
         )
 
         args = parser.parse_args()

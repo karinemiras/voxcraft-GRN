@@ -32,6 +32,6 @@ for param_name in "${config_param_names[@]}"; do
   fi
 done
 
-papermill "experiments/analysis/analysis_inter.ipynb" \
-          "experiments/analysis/analysis_inter-executed.ipynb" \
+papermill "experiments/analysis/analysis.ipynb" \
+          "experiments/analysis/analysis-executed.ipynb" \
           "${papermill_args[@]}"

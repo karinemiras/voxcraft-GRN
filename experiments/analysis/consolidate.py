@@ -14,16 +14,6 @@ from utils.config import Config
 from utils.metrics import METRICS_ABS, METRICS_REL
 
 
-ADDITIONAL_METRICS = [
-    "x_symmetry",
-    "y_symmetry",
-    "z_symmetry",
-    "x_type_symmetry",
-    "y_type_symmetry",
-    "z_type_symmetry",
-]
-
-
 class Analysis:
     def __init__(self, args):
         self.study_name = args.study_name
@@ -34,7 +24,6 @@ class Analysis:
 
         # which columns to summarize
         self.metrics = METRICS_ABS + METRICS_REL
-        self.additional_metrics = ADDITIONAL_METRICS
 
     def _resolve_db_path(self, base_path: str):
         if os.path.isdir(base_path):
@@ -99,23 +88,7 @@ class Analysis:
         #all_df.replace([-1000, -np.inf], np.nan, inplace=True)
         all_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-        additional_metrics_path = f"{self.path}/analysis/additional_metrics.csv"
         metrics_for_summary = list(self.metrics)
-        if os.path.exists(additional_metrics_path):
-            additional_df = pd.read_csv(additional_metrics_path)
-            additional_df = additional_df.rename(columns={"experiment_name": "experiment"})
-            join_cols = ["experiment", "run", "robot_id"]
-            additional_cols = join_cols + [
-                metric for metric in self.additional_metrics
-                if metric in additional_df.columns
-            ]
-            all_df = all_df.merge(additional_df[additional_cols], on=join_cols, how="inner")
-            metrics_for_summary.extend([
-                metric for metric in self.additional_metrics
-                if metric in all_df.columns
-            ])
-        else:
-            print(f"[warn] additional metrics not found: {additional_metrics_path}")
 
         all_df.to_csv(f"{self.path}/analysis/gens_robots.csv", index=False)
 

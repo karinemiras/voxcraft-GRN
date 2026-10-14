@@ -15,7 +15,7 @@ sys.path.append(str(ROOT))
 from utils.config import Config
 
 VIZPATH="/Users/karinemiras/projects/voxcraft-viz/build"
-PARAMS_EXP = "locomotion_ysymmetry.sh"
+PARAMS_EXP = "locomotion_symmetry.sh"
 VIZ_SECONDS=7
 NUMBESTS=1
 

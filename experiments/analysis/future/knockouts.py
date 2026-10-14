@@ -67,7 +67,7 @@ class Simulator:
                   'birth'  ,  'displacement'  , 'disp_y', 'speed_y'   , 'speed_x'  ,  'average_z'   , 'head_balance' ,   'hinge_count',    'brick_count',
                   'hinge_ratio' ,   'hinge_horizontal'  ,  'hinge_vertical' ,   'modules_count'  ,  'hinge_prop'  ,  'brick_prop',
                   'branching_count'  ,  'branching_prop'   , 'extensiveness'  ,  'extremities' ,   'extremities_prop',
-                  'extensiveness_prop'   , 'width'  ,  'height'   , 'coverage'  ,  'proportion',    'symmetry'  ,  'relative_speed_y'
+                  'extensiveness_prop'   , 'width'  ,  'height'   , 'coverage'  ,  'proportion',    'relative_speed_y'
                   ]
         with open(self.pfile, 'w') as file:
             file.write(','.join(map(str, header)))
